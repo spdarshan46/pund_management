@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import PundStructure, Payment
 
 
-# 🔹 PundStructure Admin
+# 🔹 Pund Structure Admin
 @admin.register(PundStructure)
 class PundStructureAdmin(admin.ModelAdmin):
     list_display = (
@@ -14,15 +14,8 @@ class PundStructureAdmin(admin.ModelAdmin):
         "created_at",
     )
 
-    list_filter = (
-        "pund",
-        "effective_from",
-    )
-
-    search_fields = (
-        "pund__name",
-    )
-
+    list_filter = ("pund", "effective_from")
+    search_fields = ("pund__name",)
     ordering = ("-effective_from",)
 
 
@@ -42,8 +35,8 @@ class PaymentAdmin(admin.ModelAdmin):
 
     list_filter = (
         "pund",
-        "is_paid",
         "week_number",
+        "is_paid",
     )
 
     search_fields = (
@@ -51,4 +44,4 @@ class PaymentAdmin(admin.ModelAdmin):
         "pund__name",
     )
 
-    ordering = ("-created_at",)
+    ordering = ("-week_number", "-created_at")

@@ -3,7 +3,6 @@ from django.utils import timezone
 from django.conf import settings
 from punds.models import Pund
 
-
 class PundStructure(models.Model):
     pund = models.ForeignKey(
         Pund,
@@ -39,6 +38,7 @@ class Payment(models.Model):
     )
 
     week_number = models.IntegerField()
+
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     penalty_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
@@ -47,5 +47,9 @@ class Payment(models.Model):
 
     created_at = models.DateTimeField(default=timezone.now)
 
+    class Meta:
+        unique_together = ("pund", "member", "week_number")
+        ordering = ["-week_number"]
+
     def __str__(self):
-        return f"{self.member.email} - Week {self.week_number}"
+        return f"{self.pund.name} - Week {self.week_number} - {self.member.email}" 
