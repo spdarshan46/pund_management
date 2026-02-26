@@ -44,7 +44,7 @@ class Payment(models.Model):
 
     is_paid = models.BooleanField(default=False)
     paid_at = models.DateTimeField(null=True, blank=True)
-
+    due_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

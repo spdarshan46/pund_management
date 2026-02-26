@@ -85,6 +85,12 @@ class GenerateWeekView(APIView):
 
         # Get latest week number
         last_payment = Payment.objects.filter(pund=pund).order_by("-week_number").first()
+
+        if last_payment:
+            # Prevent generating twice within same day
+            if last_payment.created_at.date() == timezone.now().date():
+                return Response({"error": "Week already generated today"}, status=400)
+
         next_week = 1 if not last_payment else last_payment.week_number + 1
 
         # Get latest structure
@@ -104,8 +110,9 @@ class GenerateWeekView(APIView):
             )
 
             for p in unpaid_payments:
-                p.penalty_amount = structure.missed_week_penalty
-                p.save()
+                if p.penalty_amount == 0:
+                    p.penalty_amount = structure.missed_week_penalty
+                    p.save()
 
         # Create payments for all active members
         members = Membership.objects.filter(
@@ -120,6 +127,8 @@ class GenerateWeekView(APIView):
                 member=member.user,
                 week_number=next_week,
                 amount=structure.saving_amount,
+                due_date=timezone.now().date() + timedelta(days=7),
+
             )
 
         return Response({

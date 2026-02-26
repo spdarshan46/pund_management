@@ -136,8 +136,34 @@ class ClosePundView(APIView):
 
         return Response({"message": "Pund closed successfully"})
 
+# 5️⃣ Reopen Pund
+class ReopenPundView(APIView):
+    permission_classes = [IsAuthenticated]
 
-# 5️⃣ Pund Detail (Role-Based, Active + Inactive View Allowed)
+    def post(self, request, pund_id):
+
+        pund = Pund.objects.filter(id=pund_id).first()
+        if not pund:
+            return Response({"error": "Pund not found"}, status=404)
+
+        is_owner = Membership.objects.filter(
+            user=request.user,
+            pund=pund,
+            role="OWNER"
+        ).exists()
+
+        if not is_owner:
+            return Response({"error": "Only owner can reopen"}, status=403)
+
+        pund.is_active = True
+        pund.save()
+
+        Membership.objects.filter(pund=pund).update(is_active=True)
+
+        return Response({"message": "Pund reopened successfully"})
+    
+# 6️⃣ # 6 Pund Detail (Role-Based, Active + Inactive View Allowed)
+
 class PundDetailView(APIView):
     permission_classes = [IsAuthenticated]
 

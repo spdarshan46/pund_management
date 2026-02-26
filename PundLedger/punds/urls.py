@@ -7,4 +7,5 @@ urlpatterns = [
     path("my-all/", MyAllPundsView.as_view()),
     path("<int:pund_id>/close/", ClosePundView.as_view()),
     path("<int:pund_id>/", PundDetailView.as_view()),   
+    path("<int:pund_id>/reopen/", ReopenPundView.as_view()),
 ]
