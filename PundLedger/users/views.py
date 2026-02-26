@@ -119,3 +119,34 @@ class ResetPasswordView(APIView):
             return Response({"message": "Password reset successful"})
 
         return Response(serializer.errors, status=400)
+class SetPasswordView(APIView):
+
+    def post(self, request):
+        serializer = SetPasswordSerializer(data=request.data)
+
+        if serializer.is_valid():
+            email = serializer.validated_data["email"]
+            password = serializer.validated_data["password"]
+
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return Response({"error": "User not found"}, status=404)
+
+            # Email must be verified first
+            if not user.email_verified:
+                return Response(
+                    {"error": "Verify email first"},
+                    status=400
+                )
+
+            # Set password and activate
+            user.set_password(password)
+            user.is_active = True
+            user.save()
+
+            return Response({
+                "message": "Password set successfully. Account activated."
+            })
+
+        return Response(serializer.errors, status=400)

@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import Group, Permission
 
 
 class UserManager(BaseUserManager):
@@ -39,6 +40,19 @@ class User(AbstractBaseUser, PermissionsMixin):
     otp_attempts = models.IntegerField(default=0)
 
     created_at = models.DateTimeField(default=timezone.now)
+
+    # FIX FOR GROUP CLASH
+    groups = models.ManyToManyField(
+        Group,
+        related_name="users_custom_set",
+        blank=True,
+    )
+
+    user_permissions = models.ManyToManyField(
+        Permission,
+        related_name="users_custom_permissions_set",
+        blank=True,
+    )
 
     USERNAME_FIELD = "email"
 

@@ -32,6 +32,9 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "corsheaders",
     "users",
+    "punds",
+    "finance",
+
 ]
 
 MIDDLEWARE = [
@@ -125,6 +128,7 @@ from datetime import timedelta
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
+        
     ),
 }
 
