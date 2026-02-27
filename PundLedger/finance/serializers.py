@@ -8,7 +8,9 @@ class PundStructureSerializer(serializers.ModelSerializer):
         fields = [
             "saving_amount",
             "loan_interest_percentage",
-            "missed_week_penalty",
+            "missed_saving_penalty",
+            "missed_loan_penalty",
+            "default_loan_cycles",
         ]
 
 
@@ -22,3 +24,10 @@ class PaymentSerializer(serializers.ModelSerializer):
             "is_paid",
             "paid_at",
         ]
+
+class LoanRequestSerializer(serializers.Serializer):
+    principal_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
+class LoanApproveSerializer(serializers.Serializer):
+    cycles = serializers.IntegerField(required=False)

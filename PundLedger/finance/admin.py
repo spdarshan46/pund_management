@@ -1,45 +1,68 @@
 from django.contrib import admin
-from .models import PundStructure, Payment
+from .models import PundStructure, Payment, Loan, LoanInstallment
 
+
+# ==========================
+# PUND STRUCTURE ADMIN
+# ==========================
 @admin.register(PundStructure)
 class PundStructureAdmin(admin.ModelAdmin):
-    """Admin for structure versions per pund."""
     list_display = (
         "pund",
         "saving_amount",
         "loan_interest_percentage",
-        "missed_week_penalty",
+        "missed_saving_penalty",
+        "missed_loan_penalty",
+        "default_loan_cycles",
         "effective_from",
         "created_at",
     )
+
     list_filter = ("pund", "effective_from")
-    search_fields = ("pund__name",)
     ordering = ("-effective_from",)
+    search_fields = ("pund__name",)
+
     readonly_fields = ("created_at",)
-    date_hierarchy = "effective_from"
 
 
+# ==========================
+# PAYMENT ADMIN
+# ==========================
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    """Admin for weekly payment entries."""
     list_display = (
-        "id",
         "pund",
         "member",
-        "week_number",
+        "cycle_number",
         "amount",
         "penalty_amount",
         "is_paid",
-        "paid_at",
+        "due_date",
         "created_at",
     )
-    list_filter = ("pund", "week_number", "is_paid")
-    search_fields = ("member__email", "member__name", "pund__name")
-    ordering = ("-week_number", "-created_at")
-    readonly_fields = ("created_at", "paid_at")
-    autocomplete_fields = ("member", "pund")
-    fieldsets = (
-        (None, {"fields": ("pund", "member", "week_number", "amount", "penalty_amount")}),
-        ("Status", {"fields": ("is_paid", "paid_at")}),
-        ("Meta", {"fields": ("created_at",)}),
+
+    list_filter = ("pund", "is_paid", "cycle_number")
+    search_fields = ("member__email", "pund__name")
+    ordering = ("-cycle_number",)
+
+    readonly_fields = (
+        "pund",
+        "member",
+        "cycle_number",
+        "amount",
+        "penalty_amount",
+        "due_date",
+        "created_at",
     )
+
+
+@admin.register(Loan)
+class LoanAdmin(admin.ModelAdmin):
+    list_display = ("member", "pund", "principal_amount", "status", "is_active", "created_at")
+    list_filter = ("status", "is_active")
+
+
+@admin.register(LoanInstallment)
+class LoanInstallmentAdmin(admin.ModelAdmin):
+    list_display = ("loan", "cycle_number", "emi_amount", "penalty_amount", "is_paid", "due_date")
+    list_filter = ("is_paid",)
