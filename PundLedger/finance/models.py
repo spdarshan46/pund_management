@@ -124,4 +124,23 @@ class LoanInstallment(models.Model):
 
     def __str__(self):
         return f"Loan {self.loan.id} - Cycle {self.cycle_number}"
+
+# ==========================
+# audit log
+# ==========================
+class FinanceAuditLog(models.Model):
+
+    pund = models.ForeignKey(Pund, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+
+    action = models.CharField(max_length=100)
+    description = models.TextField()
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.action} - {self.pund.name}"
     

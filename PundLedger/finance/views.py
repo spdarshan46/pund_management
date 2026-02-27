@@ -7,7 +7,7 @@ from decimal import Decimal
 from django.db import models
 from punds.models import Pund, Membership
 from .serializers import PundStructureSerializer, LoanRequestSerializer, LoanApproveSerializer
-from .models import Payment, PundStructure, Loan, LoanInstallment
+from .models import FinanceAuditLog, Payment, PundStructure, Loan, LoanInstallment
 
 
 # ==========================
@@ -313,6 +313,12 @@ class ApproveLoanView(APIView):
         loan.approved_by = request.user
         loan.approved_at = timezone.now()
         loan.save()
+        FinanceAuditLog.objects.create(
+            pund=pund,
+            user=request.user,
+            action="Loan Approved",
+            description=f"Loan {loan.id} approved for {loan.member.email}"
+        )
 
         # Generate installments (start next cycle)
         delta = 7 if pund.pund_type == "WEEKLY" else 30
@@ -427,6 +433,10 @@ class LoanDetailView(APIView):
 
         if not membership:
             return Response({"error": "Not authorized"}, status=403)
+        
+        # If member role, ensure loan belongs to them
+        if membership.role == "MEMBER" and loan.member != request.user:
+            return Response({"error": "You cannot view other member loans"}, status=403)
 
         # Apply penalty before showing data
         apply_loan_penalty(loan)
@@ -450,4 +460,232 @@ class LoanDetailView(APIView):
             "remaining_amount": str(loan.remaining_amount),
             "status": loan.status,
             "installments": data
+        })
+
+# ==========================
+# pund fund summary view 
+# ==========================
+class FundSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pund_id):
+
+        pund = Pund.objects.filter(id=pund_id).first()
+        if not pund:
+            return Response({"error": "Pund not found"}, status=404)
+
+        is_member = Membership.objects.filter(
+            user=request.user,
+            pund=pund,
+            is_active=True
+        ).exists()
+
+        if not is_member:
+            return Response({"error": "Not authorized"}, status=403)
+
+        total_collected = Payment.objects.filter(
+            pund=pund,
+            is_paid=True
+        ).aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+
+        total_active_loans = Loan.objects.filter(
+            pund=pund,
+            is_active=True
+        ).aggregate(total=models.Sum("remaining_amount"))["total"] or Decimal("0")
+
+        available = total_collected - total_active_loans
+
+        return Response({
+            "total_collected": str(total_collected),
+            "active_loan_outstanding": str(total_active_loans),
+            "available_fund": str(available)
+        })
+
+# ==========================
+#loan view for member
+# ==========================
+class MyLoansView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        loans = Loan.objects.filter(member=request.user)
+
+        data = []
+        for loan in loans:
+            data.append({
+                "loan_id": loan.id,
+                "pund": loan.pund.name,
+                "principal": str(loan.principal_amount),
+                "remaining": str(loan.remaining_amount),
+                "status": loan.status,
+                "is_active": loan.is_active
+            })
+
+        return Response(data)
+
+# ==========================
+# loan view for owner (all loans in pund)
+# ==========================
+class PundLoansView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pund_id):
+
+        pund = Pund.objects.filter(id=pund_id).first()
+        if not pund:
+            return Response({"error": "Pund not found"}, status=404)
+
+        is_owner = Membership.objects.filter(
+            user=request.user,
+            pund=pund,
+            role="OWNER",
+            is_active=True
+        ).exists()
+
+        if not is_owner:
+            return Response({"error": "Only owner can view loans"}, status=403)
+
+        loans = Loan.objects.filter(pund=pund)
+
+        data = []
+        for loan in loans:
+            data.append({
+                "loan_id": loan.id,
+                "member": loan.member.email,
+                "principal": str(loan.principal_amount),
+                "remaining": str(loan.remaining_amount),
+                "status": loan.status
+            })
+
+        return Response(data)
+
+
+#   ==========================
+# saving summary view 
+#   ==========================
+class SavingSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pund_id):
+
+        pund = Pund.objects.filter(id=pund_id).first()
+        if not pund:
+            return Response({"error": "Pund not found"}, status=404)
+
+        # Only owner can see full summary
+        membership = Membership.objects.filter(
+            user=request.user,
+            pund=pund,
+            role="OWNER",
+            is_active=True
+        ).exists()
+
+        if not membership:
+            return Response({"error": "Only owner can view saving summary"}, status=403)
+
+        payments = Payment.objects.filter(pund=pund)
+
+        total_cycles = payments.values("cycle_number").distinct().count()
+
+        total_expected = payments.aggregate(
+            total=models.Sum("amount")
+        )["total"] or Decimal("0")
+
+        total_paid = payments.filter(is_paid=True).aggregate(
+            total=models.Sum("amount")
+        )["total"] or Decimal("0")
+
+        total_unpaid = payments.filter(is_paid=False).aggregate(
+            total=models.Sum("amount")
+        )["total"] or Decimal("0")
+
+        total_penalty = payments.aggregate(
+            total=models.Sum("penalty_amount")
+        )["total"] or Decimal("0")
+
+        total_members = Membership.objects.filter(
+            pund=pund,
+            role="MEMBER",
+            is_active=True
+        ).count()
+
+        return Response({
+            "total_cycles": total_cycles,
+            "total_members": total_members,
+            "total_expected_savings": str(total_expected),
+            "total_paid_savings": str(total_paid),
+            "total_unpaid_savings": str(total_unpaid),
+            "total_penalties_collected": str(total_penalty),
+        })
+
+# ==========================
+# member fund summary view
+# ==========================
+class MyFinancialSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        user = request.user
+
+        # =========================
+        # SAVING SUMMARY
+        # =========================
+        payments = Payment.objects.filter(member=user)
+
+        total_savings_paid = payments.filter(is_paid=True).aggregate(
+            total=models.Sum("amount")
+        )["total"] or Decimal("0")
+
+        total_saving_penalty = payments.aggregate(
+            total=models.Sum("penalty_amount")
+        )["total"] or Decimal("0")
+
+        total_unpaid_savings = payments.filter(is_paid=False).aggregate(
+            total=models.Sum("amount")
+        )["total"] or Decimal("0")
+
+        # =========================
+        # LOAN SUMMARY
+        # =========================
+        active_loan = Loan.objects.filter(
+            member=user,
+            is_active=True
+        ).first()
+
+        loan_data = None
+
+        if active_loan:
+
+            # Apply penalty before showing
+            apply_loan_penalty(active_loan)
+
+            installments = LoanInstallment.objects.filter(loan=active_loan)
+
+            total_emi_paid = installments.filter(is_paid=True).aggregate(
+                total=models.Sum("emi_amount")
+            )["total"] or Decimal("0")
+
+            total_loan_penalty = installments.aggregate(
+                total=models.Sum("penalty_amount")
+            )["total"] or Decimal("0")
+
+            loan_data = {
+                "loan_id": active_loan.id,
+                "principal": str(active_loan.principal_amount),
+                "remaining_amount": str(active_loan.remaining_amount),
+                "total_payable": str(active_loan.total_payable),
+                "status": active_loan.status,
+                "total_emi_paid": str(total_emi_paid),
+                "total_loan_penalty": str(total_loan_penalty),
+            }
+
+        return Response({
+            "saving_summary": {
+                "total_savings_paid": str(total_savings_paid),
+                "total_saving_penalty": str(total_saving_penalty),
+                "total_unpaid_savings": str(total_unpaid_savings),
+            },
+            "loan_summary": loan_data
         })
