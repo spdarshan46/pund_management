@@ -5,7 +5,7 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 
 from users.services import send_invite_email
-from finance.models import PundStructure, Payment
+from finance.models import FinanceAuditLog, PundStructure, Payment
 from finance.serializers import PaymentSerializer
 from .models import Pund, Membership
 from .serializers import *
@@ -131,6 +131,12 @@ class ClosePundView(APIView):
 
         pund.is_active = False
         pund.save()
+        FinanceAuditLog.objects.create(
+            pund=pund,
+            user=request.user,
+            action="Pund Closed",
+            description=f"Pund {pund.name} closed"
+    )
 
         Membership.objects.filter(pund=pund).update(is_active=False)
 

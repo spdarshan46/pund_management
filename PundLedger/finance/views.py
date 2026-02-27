@@ -184,6 +184,12 @@ class MarkPaymentPaidView(APIView):
         payment.is_paid = True
         payment.paid_at = timezone.now()
         payment.save()
+        FinanceAuditLog.objects.create(
+            pund=payment.pund,
+            user=request.user,
+            action="Saving Paid",
+            description=f"Saving payment {payment.id} marked paid"
+        )
 
         return Response({"message": "Payment marked as paid"})
     
@@ -396,6 +402,12 @@ class MarkLoanInstallmentPaidView(APIView):
         installment.is_paid = True
         installment.paid_at = timezone.now()
         installment.save()
+        FinanceAuditLog.objects.create(
+            pund=loan.pund,
+            user=request.user,
+            action="EMI Paid",
+            description=f"Installment {installment.id} marked paid" 
+            )
 
         # Reduce remaining amount
         loan.remaining_amount -= installment.emi_amount
@@ -688,4 +700,149 @@ class MyFinancialSummaryView(APIView):
                 "total_unpaid_savings": str(total_unpaid_savings),
             },
             "loan_summary": loan_data
+        })
+
+# ==========================
+#audit log view (for owner to see all financial actions in pund)
+# ==========================
+class AuditLogView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pund_id):
+
+        pund = Pund.objects.filter(id=pund_id).first()
+        if not pund:
+            return Response({"error": "Pund not found"}, status=404)
+
+        # Only OWNER can view logs
+        is_owner = Membership.objects.filter(
+            user=request.user,
+            pund=pund,
+            role="OWNER",
+            is_active=True
+        ).exists()
+
+        if not is_owner:
+            return Response({"error": "Only owner can view audit logs"}, status=403)
+
+        logs = FinanceAuditLog.objects.filter(pund=pund)
+
+        data = []
+        for log in logs:
+            data.append({
+                "action": log.action,
+                "description": log.description,
+                "performed_by": log.user.email if log.user else None,
+                "timestamp": log.created_at,
+            })
+
+        return Response(data)
+
+# ==========================
+# export report view 
+# ==========================
+class ExportReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pund_id):
+
+        pund = Pund.objects.filter(id=pund_id).first()
+        if not pund:
+            return Response({"error": "Pund not found"}, status=404)
+
+        # Only OWNER can export report
+        is_owner = Membership.objects.filter(
+            user=request.user,
+            pund=pund,
+            role="OWNER",
+            is_active=True
+        ).exists()
+
+        if not is_owner:
+            return Response({"error": "Only owner can export report"}, status=403)
+
+        # =========================
+        # SAVING DATA
+        # =========================
+        payments = Payment.objects.filter(pund=pund)
+
+        total_expected = payments.aggregate(
+            total=models.Sum("amount")
+        )["total"] or Decimal("0")
+
+        total_paid = payments.filter(is_paid=True).aggregate(
+            total=models.Sum("amount")
+        )["total"] or Decimal("0")
+
+        total_penalty = payments.aggregate(
+            total=models.Sum("penalty_amount")
+        )["total"] or Decimal("0")
+
+        # =========================
+        # LOAN DATA
+        # =========================
+        loans = Loan.objects.filter(pund=pund)
+
+        total_loan_disbursed = loans.aggregate(
+            total=models.Sum("principal_amount")
+        )["total"] or Decimal("0")
+
+        total_loan_outstanding = loans.filter(is_active=True).aggregate(
+            total=models.Sum("remaining_amount")
+        )["total"] or Decimal("0")
+
+        # =========================
+        # MEMBER BREAKDOWN
+        # =========================
+        members = Membership.objects.filter(
+            pund=pund,
+            role="MEMBER"
+        )
+
+        member_data = []
+
+        for member in members:
+            user = member.user
+
+            member_payments = Payment.objects.filter(
+                pund=pund,
+                member=user
+            )
+
+            member_loans = Loan.objects.filter(
+                pund=pund,
+                member=user
+            )
+
+            member_data.append({
+                "member_email": user.email,
+                "total_savings_paid": str(
+                    member_payments.filter(is_paid=True).aggregate(
+                        total=models.Sum("amount")
+                    )["total"] or Decimal("0")
+                ),
+                "total_saving_penalty": str(
+                    member_payments.aggregate(
+                        total=models.Sum("penalty_amount")
+                    )["total"] or Decimal("0")
+                ),
+                "active_loan_remaining": str(
+                    member_loans.filter(is_active=True).aggregate(
+                        total=models.Sum("remaining_amount")
+                    )["total"] or Decimal("0")
+                )
+            })
+
+        return Response({
+            "pund_name": pund.name,
+            "saving_summary": {
+                "total_expected_savings": str(total_expected),
+                "total_paid_savings": str(total_paid),
+                "total_saving_penalties": str(total_penalty),
+            },
+            "loan_summary": {
+                "total_loan_disbursed": str(total_loan_disbursed),
+                "total_loan_outstanding": str(total_loan_outstanding),
+            },
+            "member_breakdown": member_data
         })
