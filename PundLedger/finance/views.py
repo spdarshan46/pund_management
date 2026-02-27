@@ -4,8 +4,9 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
+from django.db import models
 from punds.models import Pund, Membership
-from .serializers import PundStructureSerializer
+from .serializers import PundStructureSerializer, LoanRequestSerializer, LoanApproveSerializer
 from .models import Payment, PundStructure, Loan, LoanInstallment
 
 
