@@ -11,7 +11,7 @@ from .models import FinanceAuditLog, Payment, PundStructure, Loan, LoanInstallme
 
 
 # ==========================
-# 1️⃣ SET STRUCTURE (Versioned)
+# SET STRUCTURE (Versioned)
 # ==========================
 class SetStructureView(APIView):
     permission_classes = [IsAuthenticated]
@@ -71,7 +71,7 @@ class SetStructureView(APIView):
 
 
 # ==========================
-# 2️⃣ GENERATE CYCLE
+#  GENERATE CYCLE
 # ==========================
 class GenerateCycleView(APIView):
     permission_classes = [IsAuthenticated]
@@ -81,6 +81,8 @@ class GenerateCycleView(APIView):
         pund = Pund.objects.filter(id=pund_id, is_active=True).first()
         if not pund:
             return Response({"error": "Pund not found or inactive"}, status=404)
+        if not pund.is_active:
+            return Response({"error": "Pund is closed"}, status=400)
 
         # Only OWNER
         is_owner = Membership.objects.filter(
@@ -160,7 +162,7 @@ class GenerateCycleView(APIView):
 
 
 # ==========================
-# 3️⃣ MARK PAYMENT PAID
+#  MARK PAYMENT PAID
 # ==========================
 class MarkPaymentPaidView(APIView):
     permission_classes = [IsAuthenticated]
@@ -170,6 +172,10 @@ class MarkPaymentPaidView(APIView):
         payment = Payment.objects.filter(id=payment_id).first()
         if not payment:
             return Response({"error": "Payment not found"}, status=404)
+        if not payment.pund.is_active:
+            return Response({"error": "Pund is closed"}, status=400)
+        if payment.is_paid:
+            return Response({"error": "Payment already marked as paid"}, status=400)
 
         is_owner = Membership.objects.filter(
             user=request.user,
@@ -255,6 +261,8 @@ class ApproveLoanView(APIView):
         loan = Loan.objects.filter(id=loan_id, status="PENDING").first()
         if not loan:
             return Response({"error": "Loan not found"}, status=404)
+        if not loan.pund.is_active:
+            return Response({"error": "Pund is closed"}, status=400)
 
         pund = loan.pund
 
@@ -284,10 +292,18 @@ class ApproveLoanView(APIView):
             return Response({"error": "Structure not found"}, status=400)
 
         # Fund Check
-        total_collected = Payment.objects.filter(
+        total_collected_data = Payment.objects.filter(
             pund=pund,
             is_paid=True
-        ).aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+        ).aggregate(
+            total_amount=models.Sum("amount"),
+            total_penalty=models.Sum("penalty_amount")
+        )
+
+        total_collected = (
+            (total_collected_data["total_amount"] or Decimal("0")) +
+            (total_collected_data["total_penalty"] or Decimal("0"))
+        )
 
         total_active_loans = Loan.objects.filter(
             pund=pund,
@@ -377,6 +393,8 @@ class MarkLoanInstallmentPaidView(APIView):
         installment = LoanInstallment.objects.filter(id=installment_id).first()
         if not installment:
             return Response({"error": "Installment not found"}, status=404)
+        if not installment.loan.pund.is_active:
+            return Response({"error": "Pund is closed"}, status=400)
 
         loan = installment.loan
 
