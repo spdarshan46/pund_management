@@ -236,6 +236,8 @@ class RequestLoanView(APIView):
         )
 
         return Response({"message": "Loan request submitted"})
+
+
 # ==========================
 # APPROVE LOAN (OWNER)
 # ==========================
@@ -325,3 +327,127 @@ class ApproveLoanView(APIView):
             )
 
         return Response({"message": "Loan approved successfully"})
+    
+# ==========================
+# loan penalty application (scheduled task or cron job)  
+# ==========================
+
+def apply_loan_penalty(loan):
+    today = timezone.now().date()
+
+    structure = PundStructure.objects.filter(
+        pund=loan.pund,
+        effective_from__lte=today
+    ).order_by("-effective_from").first()
+
+    if not structure:
+        return
+
+    unpaid_installments = LoanInstallment.objects.filter(
+        loan=loan,
+        is_paid=False,
+        due_date__lt=today
+    )
+
+    for inst in unpaid_installments:
+        if inst.penalty_amount == 0:
+            inst.penalty_amount = structure.missed_loan_penalty
+            inst.save()
+
+# ==========================
+# mark loan installment paid
+# ==========================
+class MarkLoanInstallmentPaidView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, installment_id):
+
+        installment = LoanInstallment.objects.filter(id=installment_id).first()
+        if not installment:
+            return Response({"error": "Installment not found"}, status=404)
+
+        loan = installment.loan
+
+        # Only OWNER can mark paid
+        is_owner = Membership.objects.filter(
+            user=request.user,
+            pund=loan.pund,
+            role="OWNER",
+            is_active=True
+        ).exists()
+
+        if not is_owner:
+            return Response({"error": "Only owner can mark EMI"}, status=403)
+
+        if installment.is_paid:
+            return Response({"error": "Already paid"}, status=400)
+
+        # Apply penalty first if overdue
+        apply_loan_penalty(loan)
+
+        total_amount = installment.emi_amount + installment.penalty_amount
+
+        installment.is_paid = True
+        installment.paid_at = timezone.now()
+        installment.save()
+
+        # Reduce remaining amount
+        loan.remaining_amount -= installment.emi_amount
+        if loan.remaining_amount <= 0:
+            loan.remaining_amount = 0
+            loan.status = "CLOSED"
+            loan.is_active = False
+
+        loan.save()
+
+        return Response({
+            "message": "EMI marked as paid",
+            "paid_amount": str(total_amount),
+            "remaining_amount": str(loan.remaining_amount)
+        })
+
+# ==========================
+#loan details view 
+# ==========================
+class LoanDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, loan_id):
+
+        loan = Loan.objects.filter(id=loan_id).first()
+        if not loan:
+            return Response({"error": "Loan not found"}, status=404)
+
+        # Must belong to this pund
+        membership = Membership.objects.filter(
+            user=request.user,
+            pund=loan.pund,
+            is_active=True
+        ).exists()
+
+        if not membership:
+            return Response({"error": "Not authorized"}, status=403)
+
+        # Apply penalty before showing data
+        apply_loan_penalty(loan)
+
+        installments = LoanInstallment.objects.filter(loan=loan)
+
+        data = []
+        for inst in installments:
+            data.append({
+                "cycle_number": inst.cycle_number,
+                "emi_amount": str(inst.emi_amount),
+                "penalty_amount": str(inst.penalty_amount),
+                "is_paid": inst.is_paid,
+                "due_date": inst.due_date,
+            })
+
+        return Response({
+            "principal": str(loan.principal_amount),
+            "interest_percentage": str(loan.interest_percentage),
+            "total_payable": str(loan.total_payable),
+            "remaining_amount": str(loan.remaining_amount),
+            "status": loan.status,
+            "installments": data
+        })
