@@ -1,11 +1,18 @@
 from django.urls import path
-from .views import *
+from .views import (
+    SendOTPView,
+    VerifyOTPView,
+    RegisterView,
+    LoginView,
+    ForgotPasswordSendOTPView,
+    ResetPasswordView,
+)
 
 urlpatterns = [
-    path("send-otp/", SendOTPView.as_view()),
-    path("verify-otp/", VerifyOTPView.as_view()),
-    path("register/", RegisterView.as_view()),
-    path("login/", LoginView.as_view()),
-    path("reset-password/", ResetPasswordView.as_view()),
-    path("set-password/", SetPasswordView.as_view()),
+    path("send-otp/", SendOTPView.as_view(), name="send-otp"),
+    path("verify-otp/", VerifyOTPView.as_view(), name="verify-otp"),
+    path("register/", RegisterView.as_view(), name="register"),
+    path("login/", LoginView.as_view(), name="login"),
+    path("forgot-password/", ForgotPasswordSendOTPView.as_view(), name="forgot-password"),
+    path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
 ]
