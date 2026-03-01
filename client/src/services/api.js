@@ -11,10 +11,15 @@ const api = axios.create({
   },
 });
 
-// Request interceptor for debugging
+// Add token to every request
 api.interceptors.request.use(
   (config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     console.log('Making request to:', config.url);
+    console.log('With token:', token ? 'Yes' : 'No');
     console.log('With data:', config.data);
     return config;
   },
@@ -23,7 +28,7 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Handle token expiration
 api.interceptors.response.use(
   (response) => {
     console.log('Response received:', response);
@@ -34,6 +39,14 @@ api.interceptors.response.use(
     console.error('Error details:', error.response?.data);
     console.error('Status:', error.response?.status);
     
+    // If 401 Unauthorized, clear token and redirect to login
+    if (error.response?.status === 401) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      window.location.href = '/login';
+      return Promise.reject(error);
+    }
+    
     const message = error.response?.data?.error || 'An error occurred';
     toast.error(message);
     return Promise.reject(error);
@@ -41,33 +54,14 @@ api.interceptors.response.use(
 );
 
 export const authAPI = {
-  // Registration flow
   sendOTP: (email) => api.post('/users/send-otp/', { email }),
-  
-  // Forgot password flow
   forgotPasswordSendOTP: (email) => api.post('/users/forgot-password/', { email }),
-  
-  // Common
   verifyOTP: (email, otp) => api.post('/users/verify-otp/', { email, otp }),
-  
-  // Register new user
-  register: (userData) => api.post('/users/register/', {
-    email: userData.email,
-    name: userData.name,
-    mobile: userData.mobile,
-    password: userData.password
-  }),
-  
-  // Reset password
+  register: (userData) => api.post('/users/register/', userData),
   resetPassword: (email, otp, new_password) => 
-    api.post('/users/reset-password/', { 
-      email: email,
-      otp: otp,
-      new_password: new_password
-     }),
-  
-  // Login
+    api.post('/users/reset-password/', { email, otp, new_password }),
   login: (email, password) => api.post('/users/login/', { email, password }),
 };
 
+// Export api for other endpoints
 export default api;

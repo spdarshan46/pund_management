@@ -18,7 +18,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = [
-            "week_number",
+            "cycle_number",
             "amount",
             "penalty_amount",
             "is_paid",

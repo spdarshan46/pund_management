@@ -196,8 +196,9 @@ class PundDetailView(APIView):
             structure_data = {
                 "saving_amount": structure.saving_amount,
                 "loan_interest_percentage": structure.loan_interest_percentage,
-                "missed_week_penalty": structure.missed_week_penalty,
                 "effective_from": structure.effective_from,
+                "missed_saving_penalty": structure.missed_saving_penalty,
+                "missed_loan_penalty": structure.missed_loan_penalty,
             }
 
         # OWNER VIEW

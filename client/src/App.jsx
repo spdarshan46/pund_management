@@ -7,6 +7,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
+import PundDetail from './pages/PundDetail/index';
+import LoanDetail from './pages/LoanDetail';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -20,7 +22,7 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <>
-      <Toaster 
+      <Toaster
         position="top-right"
         toastOptions={{
           duration: 4000,
@@ -44,12 +46,15 @@ function App() {
           },
         }}
       />
-      
+
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        {/* Protected Routes */}
         <Route
           path="/dashboard"
           element={
@@ -58,6 +63,27 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Pund Detail Route - Protected */}
+        <Route
+          path="/pund/:id"
+          element={
+            <ProtectedRoute>
+              <PundDetail />
+            </ProtectedRoute>
+          }
+        />
+        {/* Loan Detail Route - Protected */}
+        <Route
+          path="/loan/:loanId"
+          element={
+            <ProtectedRoute>
+              <LoanDetail />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>

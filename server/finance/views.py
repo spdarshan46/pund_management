@@ -495,11 +495,11 @@ class LoanDetailView(APIView):
 # ==========================
 # pund fund summary view 
 # ==========================
+
 class FundSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pund_id):
-
         pund = Pund.objects.filter(id=pund_id).first()
         if not pund:
             return Response({"error": "Pund not found"}, status=404)
@@ -513,47 +513,88 @@ class FundSummaryView(APIView):
         if not is_member:
             return Response({"error": "Not authorized"}, status=403)
 
-        total_collected = Payment.objects.filter(
+        # Total collected (savings + penalties)
+        total_collected_data = Payment.objects.filter(
             pund=pund,
             is_paid=True
-        ).aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
+        ).aggregate(
+            total_amount=models.Sum("amount"),
+            total_penalty=models.Sum("penalty_amount")
+        )
+        
+        total_collected = (total_collected_data["total_amount"] or Decimal("0")) + \
+                          (total_collected_data["total_penalty"] or Decimal("0"))
 
-        total_active_loans = Loan.objects.filter(
+        # For available fund calculation, use principal_amount (actual money lent)
+        total_active_loans_principal = Loan.objects.filter(
+            pund=pund,
+            is_active=True
+        ).aggregate(total=models.Sum("principal_amount"))["total"] or Decimal("0")
+
+        # For display, show the total with interest (what members owe)
+        total_active_loans_with_interest = Loan.objects.filter(
             pund=pund,
             is_active=True
         ).aggregate(total=models.Sum("remaining_amount"))["total"] or Decimal("0")
 
-        available = total_collected - total_active_loans
+        available = total_collected - total_active_loans_principal
 
         return Response({
             "total_collected": str(total_collected),
-            "active_loan_outstanding": str(total_active_loans),
+            "active_loan_outstanding": str(total_active_loans_with_interest),  # Display this (includes interest)
+            "active_loan_principal": str(total_active_loans_principal),       # For calculation
             "available_fund": str(available)
         })
-
 # ==========================
 #loan view for member
 # ==========================
+# In your backend views.py - Update MyLoansView
+
 class MyLoansView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-
         loans = Loan.objects.filter(member=request.user)
 
         data = []
         for loan in loans:
+            # Calculate actual remaining amount based on paid installments
+            installments = LoanInstallment.objects.filter(loan=loan)
+            
+            # Calculate total paid (EMI + penalties)
+            total_paid_data = installments.filter(is_paid=True).aggregate(
+                total_emi=models.Sum("emi_amount"),
+                total_penalty=models.Sum("penalty_amount")
+            )
+            
+            total_paid = (total_paid_data["total_emi"] or Decimal("0")) + \
+                         (total_paid_data["total_penalty"] or Decimal("0"))
+            
+            # Calculate accurate remaining amount
+            remaining = loan.total_payable - total_paid
+            
+            # Update loan.remaining_amount if it's not matching
+            if loan.remaining_amount != remaining:
+                loan.remaining_amount = remaining
+                if remaining <= 0:
+                    loan.status = "CLOSED"
+                    loan.is_active = False
+                loan.save()
+            
             data.append({
                 "loan_id": loan.id,
                 "pund": loan.pund.name,
                 "principal": str(loan.principal_amount),
                 "remaining": str(loan.remaining_amount),
+                "total_payable": str(loan.total_payable),
                 "status": loan.status,
-                "is_active": loan.is_active
+                "is_active": loan.is_active,
+                "paid_amount": str(total_paid),
+                "progress": float((total_paid / loan.total_payable) * 100) if loan.total_payable > 0 else 0
             })
 
         return Response(data)
-
+    
 # ==========================
 # loan view for owner (all loans in pund)
 # ==========================
@@ -649,6 +690,7 @@ class SavingSummaryView(APIView):
             "total_penalties_collected": str(total_penalty),
         })
 
+
 # ==========================
 # member fund summary view
 # ==========================
@@ -719,6 +761,7 @@ class MyFinancialSummaryView(APIView):
             },
             "loan_summary": loan_data
         })
+
 
 # ==========================
 #audit log view (for owner to see all financial actions in pund)

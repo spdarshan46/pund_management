@@ -29,6 +29,7 @@ const Login = () => {
       const response = await authAPI.login(formData.email, formData.password);
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
+      localStorage.setItem('user_name', formData.email.split('@')[0]); 
       toast.success('Login successful!');
       navigate('/dashboard');
     } catch (error) {

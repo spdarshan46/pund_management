@@ -3,94 +3,133 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  FiTrendingUp,
-  FiTrendingDown,
+  FiUsers,
   FiDollarSign,
-  FiCreditCard,
   FiPieChart,
   FiSettings,
   FiLogOut,
-  FiBell,
   FiSearch,
   FiHome,
-  FiUser,
+  FiTrendingUp,
+  FiCheckCircle,
+  FiPlus,
+  FiEye,
+  FiArrowRight,
+  FiRefreshCw,
+  FiBell,
+  FiUser
 } from 'react-icons/fi';
-import {
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
-import Card from '../components/common/Card';
-import Button from '../components/common/Button';
+import { toast } from 'react-hot-toast';
+import api from '../services/api';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [punds, setPunds] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Mock data
-  const portfolioData = [
-    { name: 'Jan', value: 45000 },
-    { name: 'Feb', value: 52000 },
-    { name: 'Mar', value: 49000 },
-    { name: 'Apr', value: 58000 },
-    { name: 'May', value: 63000 },
-    { name: 'Jun', value: 59000 },
-    { name: 'Jul', value: 72000 },
-    { name: 'Aug', value: 81000 },
-    { name: 'Sep', value: 78000 },
-    { name: 'Oct', value: 85000 },
-    { name: 'Nov', value: 92000 },
-    { name: 'Dec', value: 101000 },
-  ];
+  useEffect(() => {
+    fetchMyPunds();
+    const name = localStorage.getItem('user_name') || 'User';
+    setUserName(name);
+  }, []);
 
-  const expenseData = [
-    { category: 'Housing', amount: 2200, color: '#3b82f6' },
-    { category: 'Food', amount: 800, color: '#ef4444' },
-    { category: 'Transport', amount: 400, color: '#10b981' },
-    { category: 'Entertainment', amount: 300, color: '#f59e0b' },
-    { category: 'Shopping', amount: 500, color: '#8b5cf6' },
-    { category: 'Utilities', amount: 350, color: '#ec4899' },
-  ];
-
-  const recentTransactions = [
-    { id: 1, description: 'Grocery Store', amount: -125.50, date: '2024-01-15', category: 'Food' },
-    { id: 2, description: 'Salary Deposit', amount: 4500.00, date: '2024-01-14', category: 'Income' },
-    { id: 3, description: 'Netflix Subscription', amount: -15.99, date: '2024-01-13', category: 'Entertainment' },
-    { id: 4, description: 'Uber Ride', amount: -24.50, date: '2024-01-12', category: 'Transport' },
-    { id: 5, description: 'Amazon Purchase', amount: -89.99, date: '2024-01-11', category: 'Shopping' },
-  ];
-
-  const investments = [
-    { name: 'AAPL', shares: 50, price: 175.50, change: 2.5 },
-    { name: 'GOOGL', shares: 30, price: 140.20, change: -1.2 },
-    { name: 'MSFT', shares: 45, price: 380.30, change: 1.8 },
-    { name: 'AMZN', shares: 25, price: 155.80, change: 3.2 },
-  ];
+  const fetchMyPunds = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get('/punds/my-all/');
+      console.log('API Response:', response.data);
+      setPunds(response.data);
+    } catch (error) {
+      console.error('Error fetching punds:', error);
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please login again.');
+        handleLogout();
+      } else {
+        toast.error('Failed to load your Punds');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user_name');
     navigate('/login');
   };
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(value);
+  // Filter punds based on search
+  const filteredPunds = punds.filter(pund => 
+    pund.pund_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Calculate stats
+  const totalPunds = punds.length;
+  
+  const ownerPunds = punds.filter(p => {
+    return p.role && p.role.toLowerCase() === 'owner';
+  }).length;
+  
+  const memberPunds = punds.filter(p => {
+    return p.role && p.role.toLowerCase() === 'member';
+  }).length;
+  
+  const activePunds = punds.filter(p => p.pund_active).length;
+
+  console.log('Dashboard Stats:', {
+    total: totalPunds,
+    owners: ownerPunds,
+    members: memberPunds,
+    active: activePunds,
+    rawData: punds.map(p => ({ name: p.pund_name, role: p.role }))
+  });
+
+  const stats = [
+    { 
+      label: 'Total Punds', 
+      value: totalPunds, 
+      icon: FiHome, 
+      color: 'text-blue-600', 
+      bg: 'bg-blue-100'
+    },
+    { 
+      label: 'As Owner', 
+      value: ownerPunds, 
+      icon: FiTrendingUp, 
+      color: 'text-purple-600', 
+      bg: 'bg-purple-100'
+    },
+    { 
+      label: 'As Member', 
+      value: memberPunds, 
+      icon: FiUsers, 
+      color: 'text-green-600', 
+      bg: 'bg-green-100'
+    },
+    { 
+      label: 'Active Now', 
+      value: activePunds, 
+      icon: FiCheckCircle, 
+      color: 'text-emerald-600', 
+      bg: 'bg-emerald-100'
+    },
+  ];
+
+  const getRoleBadgeColor = (role) => {
+    const roleLower = (role || '').toLowerCase();
+    return roleLower === 'owner' 
+      ? 'bg-purple-100 text-purple-700 border-purple-200' 
+      : 'bg-blue-100 text-blue-700 border-blue-200';
+  };
+
+  const getStatusBadge = (isActive) => {
+    return isActive
+      ? 'bg-green-100 text-green-700 border-green-200'
+      : 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
   return (
@@ -99,26 +138,27 @@ const Dashboard = () => {
       <motion.aside
         initial={{ x: -100 }}
         animate={{ x: 0 }}
-        className="fixed left-0 top-0 h-full w-20 bg-white shadow-lg flex flex-col items-center py-8 space-y-8"
+        className="fixed left-0 top-0 h-full w-20 bg-white shadow-lg flex flex-col items-center py-8 space-y-8 z-10"
       >
-        <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl">
-          F
+        <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-md">
+          P
         </div>
 
         <nav className="flex flex-col space-y-6 flex-1">
-          {[FiHome, FiTrendingUp, FiPieChart, FiCreditCard, FiSettings].map((Icon, index) => (
+          {[
+            { icon: FiHome, tab: 'overview' },
+            { icon: FiUsers, tab: 'punds' },
+            { icon: FiDollarSign, tab: 'transactions' },
+            { icon: FiPieChart, tab: 'analytics' },
+            { icon: FiSettings, tab: 'settings' }
+          ].map((item, index) => (
             <motion.button
               key={index}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              className={`p-3 rounded-xl transition-colors ${
-                activeTab === ['overview', 'investments', 'analytics', 'cards', 'settings'][index]
-                  ? 'bg-blue-100 text-blue-600'
-                  : 'text-gray-400 hover:bg-gray-100'
-              }`}
-              onClick={() => setActiveTab(['overview', 'investments', 'analytics', 'cards', 'settings'][index])}
+              className="p-3 rounded-xl text-gray-400 hover:bg-gray-100 transition-all"
             >
-              <Icon className="w-6 h-6" />
+              <item.icon className="w-6 h-6" />
             </motion.button>
           ))}
         </nav>
@@ -139,23 +179,48 @@ const Dashboard = () => {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex justify-between items-center mb-8"
+          className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4"
         >
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-500">Welcome back, John Doe</p>
+            <p className="text-gray-500">
+              Welcome back, <span className="font-medium text-gray-700">{userName}</span>
+            </p>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 w-full md:w-auto">
             {/* Search */}
-            <div className="relative">
+            <div className="relative flex-1 md:flex-initial">
               <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search..."
-                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search punds..."
+                className="w-full md:w-64 pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
               />
             </div>
+
+            {/* Refresh Button */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={fetchMyPunds}
+              className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md transition-all"
+              title="Refresh"
+            >
+              <FiRefreshCw className={`w-5 h-5 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
+            </motion.button>
+
+            {/* Create Pund Button */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all flex items-center space-x-2"
+            >
+              <FiPlus className="w-4 h-4" />
+              <span className="hidden sm:inline">New Pund</span>
+            </motion.button>
 
             {/* Notifications */}
             <div className="relative">
@@ -173,12 +238,13 @@ const Dashboard = () => {
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border p-4"
+                  className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border p-4 z-20"
                 >
                   <h3 className="font-semibold mb-3">Notifications</h3>
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-600">Your monthly report is ready</p>
-                    <p className="text-sm text-gray-600">Investment portfolio updated</p>
+                    <p className="text-sm text-gray-600">New contribution in "Family Savings"</p>
+                    <p className="text-sm text-gray-600">Loan request pending approval</p>
+                    <p className="text-sm text-gray-600">EMI due in 2 days</p>
                   </div>
                 </motion.div>
               )}
@@ -187,9 +253,9 @@ const Dashboard = () => {
             {/* User Avatar */}
             <motion.div
               whileHover={{ scale: 1.1 }}
-              className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold cursor-pointer"
+              className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold cursor-pointer shadow-md"
             >
-              JD
+              {userName.charAt(0).toUpperCase()}
             </motion.div>
           </div>
         </motion.div>
@@ -199,158 +265,129 @@ const Dashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
         >
-          {[
-            { label: 'Total Balance', value: 124567, icon: FiDollarSign, color: 'text-green-600', bg: 'bg-green-100', change: '+12.5%' },
-            { label: 'Monthly Income', value: 8420, icon: FiTrendingUp, color: 'text-blue-600', bg: 'bg-blue-100', change: '+8.2%' },
-            { label: 'Monthly Expenses', value: 5230, icon: FiTrendingDown, color: 'text-red-600', bg: 'bg-red-100', change: '-3.1%' },
-            { label: 'Investments', value: 45320, icon: FiPieChart, color: 'text-purple-600', bg: 'bg-purple-100', change: '+15.3%' },
-          ].map((stat, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow">
+          {stats.map((stat, index) => (
+            <motion.div
+              key={index}
+              whileHover={{ y: -5 }}
+              className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all"
+            >
               <div className="flex items-center justify-between mb-4">
                 <div className={`p-3 rounded-xl ${stat.bg}`}>
                   <stat.icon className={`w-6 h-6 ${stat.color}`} />
                 </div>
-                <span className={`text-sm font-semibold ${
-                  stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {stat.change}
-                </span>
               </div>
-              <h3 className="text-gray-500 text-sm">{stat.label}</h3>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stat.value)}</p>
-            </Card>
+              <h3 className="text-gray-500 text-sm mb-1">{stat.label}</h3>
+              <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+            </motion.div>
           ))}
         </motion.div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Portfolio Performance */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card>
-              <h3 className="text-lg font-semibold mb-4">Portfolio Performance</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={portfolioData}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                  <Area type="monotone" dataKey="value" stroke="#3b82f6" fillOpacity={1} fill="url(#colorValue)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </Card>
-          </motion.div>
+        {/* My Punds Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">My Punds</h2>
+            {punds.length > 3 && (
+              <button className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center">
+                View All
+                <FiArrowRight className="ml-1" />
+              </button>
+            )}
+          </div>
 
-          {/* Expense Breakdown */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card>
-              <h3 className="text-lg font-semibold mb-4">Expense Breakdown</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={expenseData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="amount"
-                  >
-                    {expenseData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                </PieChart>
-              </ResponsiveContainer>
-            </Card>
-          </motion.div>
-        </div>
-
-        {/* Recent Transactions and Investments */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Transactions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <Card>
-              <h3 className="text-lg font-semibold mb-4">Recent Transactions</h3>
-              <div className="space-y-4">
-                {recentTransactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div className="flex items-center space-x-3">
-                      <div className={`p-2 rounded-lg ${
-                        transaction.amount > 0 ? 'bg-green-100' : 'bg-red-100'
-                      }`}>
-                        {transaction.amount > 0 ? (
-                          <FiTrendingUp className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <FiTrendingDown className="w-4 h-4 text-red-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium">{transaction.description}</p>
-                        <p className="text-sm text-gray-500">{transaction.date} • {transaction.category}</p>
-                      </div>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white rounded-2xl p-6 border border-gray-100 animate-pulse">
+                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                </div>
+              ))}
+            </div>
+          ) : filteredPunds.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-gray-100">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FiHome className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {searchTerm ? 'No matching Punds' : 'No Punds yet'}
+              </h3>
+              <p className="text-gray-500 mb-6">
+                {searchTerm ? 'Try a different search term' : 'Create your first Pund to start saving with your group'}
+              </p>
+              {!searchTerm && (
+                <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all inline-flex items-center">
+                  <FiPlus className="mr-2" />
+                  Create New Pund
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredPunds.slice(0, 6).map((pund) => (
+                <motion.div
+                  key={pund.pund_id}
+                  whileHover={{ y: -5 }}
+                  className="bg-white rounded-2xl p-6 border border-gray-100 hover:shadow-lg transition-all cursor-pointer group"
+                  onClick={() => navigate(`/pund/${pund.pund_id}`)}
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition">
+                        {pund.pund_name}
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1 uppercase">{pund.pund_type}</p>
                     </div>
-                    <span className={`font-semibold ${
-                      transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {formatCurrency(transaction.amount)}
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full border capitalize ${getRoleBadgeColor(pund.role)}`}>
+                      {pund.role || 'member'}
                     </span>
                   </div>
-                ))}
-              </div>
-            </Card>
-          </motion.div>
-
-          {/* Investment Portfolio */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <Card>
-              <h3 className="text-lg font-semibold mb-4">Investment Portfolio</h3>
-              <div className="space-y-4">
-                {investments.map((investment, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                    <div>
-                      <p className="font-medium">{investment.name}</p>
-                      <p className="text-sm text-gray-500">{investment.shares} shares @ ${investment.price}</p>
+                  
+                  <div className="space-y-3 mb-4">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Pund Status</span>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusBadge(pund.pund_active)}`}>
+                        {pund.pund_active ? 'Active' : 'Inactive'}
+                      </span>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">{formatCurrency(investment.shares * investment.price)}</p>
-                      <p className={`text-sm ${
-                        investment.change > 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {investment.change > 0 ? '+' : ''}{investment.change}%
-                      </p>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Membership</span>
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusBadge(pund.membership_active)}`}>
+                        {pund.membership_active ? 'Active' : 'Inactive'}
+                      </span>
                     </div>
+                    
+                    {/* Penalties - if structure data is available */}
+                    {pund.structure && (
+                      <>
+                        <div className="flex justify-between text-sm border-t pt-2 mt-2">
+                          <span className="text-gray-500 font-medium">Saving Penalty</span>
+                          <span className="text-red-600 font-bold">₹{pund.structure.missed_saving_penalty || pund.structure.missed_week_penalty || 0}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500 font-medium">Loan Penalty</span>
+                          <span className="text-red-600 font-bold">₹{pund.structure.missed_loan_penalty || 0}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
-                ))}
-              </div>
-            </Card>
-          </motion.div>
-        </div>
+
+                  <button className="w-full mt-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition flex items-center justify-center group-hover:border-blue-200 group-hover:text-blue-600">
+                    <FiEye className="mr-2" />
+                    View Details
+                  </button>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.div>
       </main>
     </div>
   );
