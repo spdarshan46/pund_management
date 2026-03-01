@@ -8,7 +8,6 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import PundDetail from './pages/PundDetail/index';
-import LoanDetail from './pages/LoanDetail';
 import CreatePund from './pages/CreatePund';
 import AddMember from './pages/AddMember';
 
@@ -65,7 +64,15 @@ function App() {
             </ProtectedRoute>
           }
         />
-
+        {/* Nested Dashboard Routes */}
+        <Route
+          path="/dashboard/*"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
         {/* Pund Detail Route - Protected */}
         <Route
           path="/pund/:id"
@@ -75,15 +82,7 @@ function App() {
             </ProtectedRoute>
           }
         />
-        {/* Loan Detail Route - Protected */}
-        <Route
-          path="/loan/:loanId"
-          element={
-            <ProtectedRoute>
-              <LoanDetail />
-            </ProtectedRoute>
-          }
-        />
+
         {/* Create Pund Route - Protected */}
         <Route
           path="/pund/create"

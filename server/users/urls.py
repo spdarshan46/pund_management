@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import (
+    ChangePasswordView,
     SendOTPView,
     VerifyOTPView,
     RegisterView,
@@ -15,4 +16,5 @@ urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
     path("forgot-password/", ForgotPasswordSendOTPView.as_view(), name="forgot-password"),
     path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
+    path("change-password/", ChangePasswordView.as_view()),
 ]

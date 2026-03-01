@@ -5,6 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from datetime import timedelta
+from rest_framework.permissions import IsAuthenticated
 
 from .models import User
 from .serializers import (
@@ -13,6 +14,7 @@ from .serializers import (
     RegisterSerializer,
     LoginSerializer,
     ResetPasswordSerializer,
+    ChangePasswordSerializer,
 )
 from .services import send_otp_email
 
@@ -229,3 +231,30 @@ class ResetPasswordView(APIView):
             user.save()
 
             return Response({"message": "Password reset successful"})
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+
+        if serializer.is_valid():
+            user = request.user
+            current_password = serializer.validated_data["current_password"]
+            new_password = serializer.validated_data["new_password"]
+
+            # Check current password
+            if not user.check_password(current_password):
+                return Response(
+                    {"error": "Current password is incorrect"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Set new password
+            user.set_password(new_password)
+            user.save()
+
+            return Response({"message": "Password changed successfully"})
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

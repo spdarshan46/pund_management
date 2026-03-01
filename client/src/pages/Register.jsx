@@ -2,13 +2,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiMail, FiLock, FiUser, FiPhone, FiArrowRight, FiCheckCircle, FiArrowLeft } from 'react-icons/fi';
+import { FiMail, FiLock, FiUser, FiPhone, FiArrowRight, FiArrowLeft } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { authAPI } from '../services/api';
 
 const Register = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState('register'); // register, verify
+  const [step, setStep] = useState('register');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -89,13 +89,13 @@ const Register = () => {
 
     setLoading(true);
     try {
-      // Step 1: Send OTP first
       await authAPI.sendOTP(formData.email);
-      toast.success('Verification code sent to your email!');
+      toast.success('Verification code sent!');
       setStep('verify');
       startTimer();
     } catch (error) {
       console.error('Send OTP error:', error);
+      toast.error(error.response?.data?.message || 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
@@ -110,10 +110,8 @@ const Register = () => {
 
     setLoading(true);
     try {
-      // Step 2: Verify OTP
       await authAPI.verifyOTP(formData.email, otpString);
       
-      // Step 3: After OTP verification, register the user
       await authAPI.register({
         name: formData.name,
         email: formData.email,
@@ -125,6 +123,7 @@ const Register = () => {
       navigate('/login');
     } catch (error) {
       console.error('Verification/Registration error:', error);
+      toast.error(error.response?.data?.message || 'Verification failed');
     } finally {
       setLoading(false);
     }
@@ -136,49 +135,52 @@ const Register = () => {
     setLoading(true);
     try {
       await authAPI.sendOTP(formData.email);
-      toast.success('OTP resent successfully!');
+      toast.success('OTP resent!');
       startTimer();
     } catch (error) {
       console.error('Resend error:', error);
+      toast.error('Failed to resend OTP');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center py-12 px-4">
-      {/* Decorative Elements */}
-      <div className="fixed top-1/2 left-0 w-64 h-64 bg-blue-100 rounded-full filter blur-3xl opacity-30 -translate-y-1/2" />
-      <div className="fixed bottom-0 right-0 w-96 h-96 bg-purple-100 rounded-full filter blur-3xl opacity-30" />
-
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="max-w-md w-full"
+        transition={{ duration: 0.3 }}
+        className="max-w-sm w-full"
       >
+        {/* Back to Home */}
+        <Link to="/" className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-4 group">
+          <FiArrowLeft className="mr-1 w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+          <span className="text-xs">Back</span>
+        </Link>
+
         {/* Logo */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-4">
           <Link to="/" className="inline-flex items-center space-x-2">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-xl">P</span>
+            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
+              <span className="text-white font-bold text-sm">P</span>
             </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <span className="text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               PundX
             </span>
           </Link>
         </div>
 
         {/* Register Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="text-center mb-4">
+            <h1 className="text-base font-semibold text-gray-900 mb-1">
               {step === 'register' ? 'Create account' : 'Verify email'}
             </h1>
-            <p className="text-gray-500 text-sm">
+            <p className="text-xs text-gray-500">
               {step === 'register' 
                 ? 'Enter your details to get started' 
-                : `Enter the 6-digit code sent to ${formData.email}`
+                : `Code sent to ${formData.email}`
               }
             </p>
           </div>
@@ -187,24 +189,22 @@ const Register = () => {
             {step === 'register' ? (
               <motion.form
                 key="register"
-                initial={{ opacity: 0, x: -20 }}
+                initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="space-y-4"
+                exit={{ opacity: 0, x: 10 }}
+                className="space-y-3"
                 onSubmit={(e) => e.preventDefault()}
               >
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full name
-                  </label>
+                  <label className="block text-xs text-gray-600 mb-1">Full name</label>
                   <div className="relative">
-                    <FiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <FiUser className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                     <input
                       type="text"
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                      className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
                       placeholder="John Doe"
                       required
                     />
@@ -212,17 +212,15 @@ const Register = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email address
-                  </label>
+                  <label className="block text-xs text-gray-600 mb-1">Email</label>
                   <div className="relative">
-                    <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <FiMail className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                      className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
                       placeholder="john@example.com"
                       required
                     />
@@ -230,18 +228,16 @@ const Register = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mobile number
-                  </label>
+                  <label className="block text-xs text-gray-600 mb-1">Mobile</label>
                   <div className="relative">
-                    <FiPhone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <FiPhone className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                     <input
                       type="tel"
                       name="mobile"
                       value={formData.mobile}
                       onChange={handleInputChange}
                       maxLength="10"
-                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                      className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
                       placeholder="9876543210"
                       required
                     />
@@ -249,17 +245,15 @@ const Register = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password
-                  </label>
+                  <label className="block text-xs text-gray-600 mb-1">Password</label>
                   <div className="relative">
-                    <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <FiLock className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                     <input
                       type="password"
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
+                      className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
                       placeholder="Min. 8 characters"
                       required
                     />
@@ -267,18 +261,16 @@ const Register = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirm password
-                  </label>
+                  <label className="block text-xs text-gray-600 mb-1">Confirm password</label>
                   <div className="relative">
-                    <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <FiLock className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                     <input
                       type="password"
                       name="confirmPassword"
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition"
-                      placeholder="Confirm your password"
+                      className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+                      placeholder="Confirm password"
                       required
                     />
                   </div>
@@ -288,14 +280,14 @@ const Register = () => {
                   type="button"
                   onClick={handleSendOTP}
                   disabled={loading}
-                  className="w-full mt-6 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center disabled:opacity-50"
+                  className="w-full mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition-all flex items-center justify-center disabled:opacity-50"
                 >
                   {loading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
                       Send Verification Code
-                      <FiArrowRight className="ml-2" />
+                      <FiArrowRight className="ml-1 w-3 h-3" />
                     </>
                   )}
                 </button>
@@ -303,22 +295,19 @@ const Register = () => {
             ) : (
               <motion.div
                 key="verify"
-                initial={{ opacity: 0, x: 20 }}
+                initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-6"
+                exit={{ opacity: 0, x: -10 }}
+                className="space-y-4"
               >
-                <div className="text-center mb-4">
-                  <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <FiMail className="w-8 h-8 text-blue-600" />
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <FiMail className="w-5 h-5 text-blue-600" />
                   </div>
-                  <p className="text-sm text-gray-600">
-                    We've sent a verification code to
-                  </p>
-                  <p className="text-sm font-medium text-gray-900">{formData.email}</p>
+                  <p className="text-xs text-gray-600 mb-1">Enter verification code</p>
                 </div>
 
-                <div className="flex justify-center space-x-3">
+                <div className="flex justify-center space-x-1.5">
                   {otp.map((digit, index) => (
                     <input
                       key={index}
@@ -327,7 +316,7 @@ const Register = () => {
                       value={digit}
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleKeyDown(index, e)}
-                      className="w-12 h-12 text-center text-xl font-semibold border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      className="w-8 h-8 text-center text-sm font-semibold border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
                       maxLength="1"
                       autoFocus={index === 0}
                     />
@@ -338,33 +327,41 @@ const Register = () => {
                   <button
                     onClick={handleResendOTP}
                     disabled={timer > 0}
-                    className={`text-sm ${
+                    className={`text-[10px] ${
                       timer > 0 
                         ? 'text-gray-400 cursor-not-allowed' 
                         : 'text-blue-600 hover:text-blue-700'
                     }`}
                   >
-                    {timer > 0 ? `Resend code in ${timer}s` : 'Resend code'}
+                    {timer > 0 ? `Resend in ${timer}s` : 'Resend code'}
                   </button>
                 </div>
 
-                <button
-                  onClick={handleVerifyOTP}
-                  disabled={loading || otp.join('').length !== 6}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-lg hover:shadow-lg transition disabled:opacity-50 flex items-center justify-center"
-                >
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    'Verify & Register'
-                  )}
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setStep('register')}
+                    className="flex-1 px-3 py-1.5 border border-gray-200 text-gray-700 rounded-lg text-xs hover:bg-gray-50"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleVerifyOTP}
+                    disabled={loading || otp.join('').length !== 6}
+                    className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center"
+                  >
+                    {loading ? (
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      'Verify'
+                    )}
+                  </button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500">
+          <div className="mt-4 text-center">
+            <p className="text-xs text-gray-500">
               Already have an account?{' '}
               <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
                 Sign in
