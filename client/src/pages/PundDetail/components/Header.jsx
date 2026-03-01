@@ -1,6 +1,6 @@
 // src/pages/PundDetail/components/Header.jsx
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   FiArrowLeft,
   FiEye,
@@ -12,10 +12,10 @@ import {
   FiSettings,
   FiDownload,
   FiPlus,
-  FiInfo,
-  FiMenu
+  FiMenu,
+  FiLock,
+  FiUnlock
 } from 'react-icons/fi';
-import { motion } from 'framer-motion';
 
 const Header = ({
   pundData,
@@ -26,19 +26,25 @@ const Header = ({
   onSetStructure,
   onExportReport,
   onRequestLoan,
+  onClosePund,
+  onReopenPund,
   generatingCycle,
-  hasStructure
+  hasStructure,
+  pundId
 }) => {
   const navigate = useNavigate();
   const [showMobileMenu, setShowMobileMenu] = React.useState(false);
 
+  // In the tabs array, add 'payments' tab for owner
   const tabs = [
     { id: 'overview', label: 'Overview', icon: FiEye },
     { id: 'savings', label: 'Savings', icon: FiDollarSign },
+    { id: 'payments', label: 'Payments', icon: FiTrendingUp }, // Add this line
     { id: 'loans', label: 'Loans', icon: FiTrendingUp },
     ...(role === 'OWNER' ? [{ id: 'members', label: 'Members', icon: FiUsers }] : []),
     ...(role === 'OWNER' ? [{ id: 'audit', label: 'Audit', icon: FiFileText }] : [])
   ];
+  const isPundActive = pundData?.pund_active;
 
   return (
     <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
@@ -52,14 +58,14 @@ const Header = ({
               <FiArrowLeft className="w-5 h-5 text-gray-600" />
             </button>
             <div className="min-w-0 flex-1">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{pundData.pund_name}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{pundData?.pund_name}</h1>
               <div className="flex flex-wrap items-center gap-2 mt-1">
-                <span className="text-xs sm:text-sm text-gray-500">{pundData.pund_type}</span>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${pundData.pund_active
+                <span className="text-xs sm:text-sm text-gray-500">{pundData?.pund_type}</span>
+                <span className={`px-2 py-1 text-xs font-medium rounded-full ${isPundActive
                     ? 'bg-green-100 text-green-700'
                     : 'bg-gray-100 text-gray-700'
                   }`}>
-                  {pundData.pund_active ? 'Active' : 'Inactive'}
+                  {isPundActive ? 'Active' : 'Closed'}
                 </span>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${role === 'OWNER'
                     ? 'bg-purple-100 text-purple-700'
@@ -74,42 +80,86 @@ const Header = ({
           <div className="flex items-center justify-end space-x-2 sm:space-x-3">
             {role === 'OWNER' && (
               <>
-                <button
-                  onClick={onGenerateCycle}
-                  disabled={generatingCycle || !hasStructure}
-                  className={`px-3 sm:px-4 py-2 rounded-lg flex items-center text-sm ${!hasStructure
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-700'
-                    } text-white transition relative group`}
-                  title={!hasStructure ? 'Owner must set structure first' : ''}
-                >
-                  {generatingCycle ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  ) : (
-                    <FiRefreshCw className="w-4 h-4 sm:mr-2" />
-                  )}
-                  <span className="hidden sm:inline">Generate Cycle</span>
-                </button>
-                <button
-                  onClick={onSetStructure}
-                  className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center text-sm"
-                >
-                  <FiSettings className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Set Structure</span>
-                </button>
-                <button
-                  onClick={onExportReport}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition"
-                  title="Export Report"
-                >
-                  <FiDownload className="w-5 h-5 text-gray-600" />
-                </button>
+                {/* Show these buttons only when pund is ACTIVE */}
+                {isPundActive && (
+                  <>
+                    <button
+                      onClick={onGenerateCycle}
+                      disabled={generatingCycle || !hasStructure}
+                      className={`px-3 sm:px-4 py-2 rounded-lg flex items-center text-sm ${!hasStructure
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : 'bg-green-600 hover:bg-green-700'
+                        } text-white transition relative group`}
+                      title={!hasStructure ? 'Set structure first' : ''}
+                    >
+                      {generatingCycle ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      ) : (
+                        <FiRefreshCw className="w-4 h-4 sm:mr-2" />
+                      )}
+                      <span className="hidden sm:inline">Generate Cycle</span>
+                    </button>
+
+                    <button
+                      onClick={onSetStructure}
+                      className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center text-sm"
+                    >
+                      <FiSettings className="w-4 h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Set Structure</span>
+                    </button>
+
+                    <button
+                      onClick={onExportReport}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-600"
+                      title="Export Report"
+                    >
+                      <FiDownload className="w-5 h-5" />
+                    </button>
+
+                    <Link to={`/pund/${pundId}/add-member`}>
+                      <button
+                        className="px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center text-sm"
+                      >
+                        <FiUsers className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Add Member</span>
+                      </button>
+                    </Link>
+
+                    {/* Close Pund Button - Only show when pund is ACTIVE */}
+                    <button
+                      onClick={onClosePund}
+                      className="px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center text-sm"
+                      title="Close Pund"
+                    >
+                      <FiLock className="w-4 h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Close</span>
+                    </button>
+                  </>
+                )}
+
+                {/* Show Reopen button only when pund is CLOSED */}
+                {!isPundActive && (
+                  <button
+                    onClick={onReopenPund}
+                    className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center text-sm"
+                    title="Reopen Pund"
+                  >
+                    <FiUnlock className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Reopen Pund</span>
+                  </button>
+                )}
               </>
             )}
+
             {role === 'MEMBER' && (
               <button
                 onClick={onRequestLoan}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center text-sm"
+                disabled={!isPundActive}
+                className={`px-4 py-2 rounded-lg flex items-center text-sm ${!isPundActive
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                  } text-white transition`}
+                title={!isPundActive ? 'Pund is closed' : ''}
               >
                 <FiPlus className="w-4 h-4 mr-2" />
                 Request Loan

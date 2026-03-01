@@ -1,7 +1,7 @@
 // src/pages/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   FiUsers,
   FiDollarSign,
@@ -41,7 +41,8 @@ const Dashboard = () => {
     try {
       const response = await api.get('/punds/my-all/');
       console.log('API Response:', response.data);
-      setPunds(response.data);
+      // Ensure response.data is an array
+      setPunds(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching punds:', error);
       if (error.response?.status === 401) {
@@ -49,6 +50,7 @@ const Dashboard = () => {
         handleLogout();
       } else {
         toast.error('Failed to load your Punds');
+        setPunds([]); // Set empty array on error
       }
     } finally {
       setLoading(false);
@@ -63,29 +65,33 @@ const Dashboard = () => {
   };
 
   // Filter punds based on search
-  const filteredPunds = punds.filter(pund => 
-    pund.pund_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPunds = Array.isArray(punds) 
+    ? punds.filter(pund => 
+        pund.pund_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
 
   // Calculate stats
-  const totalPunds = punds.length;
+  const totalPunds = Array.isArray(punds) ? punds.length : 0;
   
-  const ownerPunds = punds.filter(p => {
-    return p.role && p.role.toLowerCase() === 'owner';
-  }).length;
+  const ownerPunds = Array.isArray(punds) 
+    ? punds.filter(p => p.role && p.role.toLowerCase() === 'owner').length 
+    : 0;
   
-  const memberPunds = punds.filter(p => {
-    return p.role && p.role.toLowerCase() === 'member';
-  }).length;
+  const memberPunds = Array.isArray(punds) 
+    ? punds.filter(p => p.role && p.role.toLowerCase() === 'member').length 
+    : 0;
   
-  const activePunds = punds.filter(p => p.pund_active).length;
+  const activePunds = Array.isArray(punds) 
+    ? punds.filter(p => p.pund_active).length 
+    : 0;
 
   console.log('Dashboard Stats:', {
     total: totalPunds,
     owners: ownerPunds,
     members: memberPunds,
     active: activePunds,
-    rawData: punds.map(p => ({ name: p.pund_name, role: p.role }))
+    rawData: punds
   });
 
   const stats = [
@@ -132,6 +138,27 @@ const Dashboard = () => {
       : 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount || 0);
+  };
+
+  // If loading, show loading spinner
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
@@ -140,9 +167,9 @@ const Dashboard = () => {
         animate={{ x: 0 }}
         className="fixed left-0 top-0 h-full w-20 bg-white shadow-lg flex flex-col items-center py-8 space-y-8 z-10"
       >
-        <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-md">
+        <Link to="/dashboard" className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-md">
           P
-        </div>
+        </Link>
 
         <nav className="flex flex-col space-y-6 flex-1">
           {[
@@ -213,14 +240,16 @@ const Dashboard = () => {
             </motion.button>
 
             {/* Create Pund Button */}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all flex items-center space-x-2"
-            >
-              <FiPlus className="w-4 h-4" />
-              <span className="hidden sm:inline">New Pund</span>
-            </motion.button>
+            <Link to="/pund/create">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all flex items-center space-x-2"
+              >
+                <FiPlus className="w-4 h-4" />
+                <span className="hidden sm:inline">New Pund</span>
+              </motion.button>
+            </Link>
 
             {/* Notifications */}
             <div className="relative">
@@ -323,10 +352,12 @@ const Dashboard = () => {
                 {searchTerm ? 'Try a different search term' : 'Create your first Pund to start saving with your group'}
               </p>
               {!searchTerm && (
-                <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all inline-flex items-center">
-                  <FiPlus className="mr-2" />
-                  Create New Pund
-                </button>
+                <Link to="/pund/create">
+                  <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all inline-flex items-center">
+                    <FiPlus className="mr-2" />
+                    Create New Pund
+                  </button>
+                </Link>
               )}
             </div>
           ) : (
@@ -363,20 +394,6 @@ const Dashboard = () => {
                         {pund.membership_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
-                    
-                    {/* Penalties - if structure data is available */}
-                    {pund.structure && (
-                      <>
-                        <div className="flex justify-between text-sm border-t pt-2 mt-2">
-                          <span className="text-gray-500 font-medium">Saving Penalty</span>
-                          <span className="text-red-600 font-bold">₹{pund.structure.missed_saving_penalty || pund.structure.missed_week_penalty || 0}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500 font-medium">Loan Penalty</span>
-                          <span className="text-red-600 font-bold">₹{pund.structure.missed_loan_penalty || 0}</span>
-                        </div>
-                      </>
-                    )}
                   </div>
 
                   <button className="w-full mt-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition flex items-center justify-center group-hover:border-blue-200 group-hover:text-blue-600">

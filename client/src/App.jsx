@@ -9,6 +9,8 @@ import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import PundDetail from './pages/PundDetail/index';
 import LoanDetail from './pages/LoanDetail';
+import CreatePund from './pages/CreatePund';
+import AddMember from './pages/AddMember';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -82,7 +84,24 @@ function App() {
             </ProtectedRoute>
           }
         />
-
+        {/* Create Pund Route - Protected */}
+        <Route
+          path="/pund/create"
+          element={
+            <ProtectedRoute>
+              <CreatePund />
+            </ProtectedRoute>
+          }
+        />
+        {/* Add Member Route - Protected */}
+        <Route
+          path="/pund/:pundId/add-member"
+          element={
+            <ProtectedRoute>
+              <AddMember />
+            </ProtectedRoute>
+          }
+        />
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import ApproveLoanView, AuditLogView, ExportReportView, FundSummaryView, GenerateCycleView, LoanDetailView, MarkLoanInstallmentPaidView, MarkPaymentPaidView, MyFinancialSummaryView, MyLoansView, PundLoansView, RequestLoanView, SavingSummaryView, SetStructureView
+from .views import AllPaymentsView, ApproveLoanView, AuditLogView, CyclePaymentsView, ExportReportView, FundSummaryView, GenerateCycleView, LoanDetailView, MarkLoanInstallmentPaidView, MarkPaymentPaidView, MyFinancialSummaryView, MyLoansView, PundLoansView, RequestLoanView, SavingSummaryView, SetStructureView
 
 urlpatterns = [
     path("pund/<int:pund_id>/set-structure/", SetStructureView.as_view()),
@@ -16,4 +16,6 @@ urlpatterns = [
     path("my-financial-summary/", MyFinancialSummaryView.as_view()),
     path("pund/<int:pund_id>/audit-logs/", AuditLogView.as_view()),
     path("pund/<int:pund_id>/export-report/", ExportReportView.as_view()),
+    path("pund/<int:pund_id>/all-payments/", AllPaymentsView.as_view()),
+    path("pund/<int:pund_id>/cycle-payments/", CyclePaymentsView.as_view()),
 ]

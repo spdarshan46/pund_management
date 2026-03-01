@@ -30,6 +30,7 @@ const Login = () => {
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
       localStorage.setItem('user_name', formData.email.split('@')[0]); 
+      localStorage.setItem('user_email', email); // Store email
       toast.success('Login successful!');
       navigate('/dashboard');
     } catch (error) {
