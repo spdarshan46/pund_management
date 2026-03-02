@@ -61,6 +61,11 @@ const PundDetail = () => {
   const { fundSummary, savingSummary, loans, auditLogs, refetchOwner } = useOwnerData(id, role);
   const { myFinancials, myLoans, refetchMember } = useMemberData(role);
 
+  // ✅ Add useEffect to refetch when tab changes
+  useEffect(() => {
+    handleRefetch();
+  }, [activeTab]);
+
   // Base menu items for all users - CORRECT ORDER
   const baseMenuItems = [
     { id: 'overview', label: 'Overview', icon: FiPieChart },
@@ -85,12 +90,18 @@ const PundDetail = () => {
     ? [...baseMenuItems, ...ownerMenuItems]
     : baseMenuItems;
 
-  const handleRefetch = () => {
-    refetch();
-    if (role === 'OWNER') {
-      refetchOwner();
-    } else {
-      refetchMember();
+  // ✅ Make handleRefetch async with await
+  const handleRefetch = async () => {
+    try {
+      await refetch();
+
+      if (role === 'OWNER') {
+        await refetchOwner();
+      } else {
+        await refetchMember();
+      }
+    } catch (err) {
+      console.error("Refetch failed:", err);
     }
   };
 
@@ -105,7 +116,7 @@ const PundDetail = () => {
     try {
       const response = await api.post(`/finance/pund/${id}/generate-cycle/`, {});
       toast.success(response.data.message || 'Cycle generated successfully');
-      handleRefetch();
+      await handleRefetch(); // ✅ Added await
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to generate cycle');
     } finally {
@@ -127,7 +138,7 @@ const PundDetail = () => {
       }
       await api.post(`/finance/pund/${id}/set-structure/`, payload);
       toast.success('Structure updated successfully');
-      handleRefetch();
+      await handleRefetch(); // ✅ Added await
       setActiveTab('overview');
     } catch (error) {
       toast.error('Failed to update structure');
@@ -138,7 +149,7 @@ const PundDetail = () => {
     try {
       await api.post(`/finance/pund/${id}/request-loan/`, loanRequest);
       toast.success('Loan request submitted');
-      handleRefetch();
+      await handleRefetch(); // ✅ Added await
     } catch (error) {
       toast.error('Failed to request loan');
     }
@@ -149,7 +160,7 @@ const PundDetail = () => {
     try {
       await api.post(`/finance/loan/${loanId}/approve/`, { cycles });
       toast.success('Loan approved');
-      handleRefetch();
+      await handleRefetch(); // ✅ Added await
     } catch (error) {
       toast.error('Failed to approve loan');
     } finally {
@@ -161,7 +172,7 @@ const PundDetail = () => {
     try {
       await api.post(`/finance/payment/${paymentId}/mark-paid/`);
       toast.success('Payment marked as paid');
-      handleRefetch();
+      await handleRefetch(); // ✅ Added await
     } catch (error) {
       toast.error('Failed to mark payment');
     }
@@ -171,7 +182,7 @@ const PundDetail = () => {
     try {
       await api.post(`/finance/installment/${installmentId}/mark-paid/`);
       toast.success('Installment marked as paid');
-      handleRefetch();
+      await handleRefetch(); // ✅ Added await
     } catch (error) {
       toast.error('Failed to mark installment');
     }
@@ -181,7 +192,7 @@ const PundDetail = () => {
     try {
       await api.post(`/punds/${id}/close/`);
       toast.success('Pund closed successfully');
-      handleRefetch();
+      await handleRefetch(); // ✅ Added await
       setActiveTab('overview');
     } catch (error) {
       toast.error('Failed to close pund');
@@ -192,7 +203,7 @@ const PundDetail = () => {
     try {
       await api.post(`/punds/${id}/reopen/`);
       toast.success('Pund reopened successfully');
-      handleRefetch();
+      await handleRefetch(); // ✅ Added await
       setActiveTab('overview');
     } catch (error) {
       toast.error('Failed to reopen pund');
@@ -638,8 +649,8 @@ const PundDetail = () => {
               savingSummary={savingSummary}
               myFinancials={myFinancials}
               pundId={id}
-              onGenerateCycle={handleGenerateCycle}  
-              generatingCycle={generatingCycle}     
+              onGenerateCycle={handleGenerateCycle}
+              generatingCycle={generatingCycle}
               onMarkPayment={handleMarkPayment}
             />
           )}
@@ -661,8 +672,6 @@ const PundDetail = () => {
             <PaymentsTab
               pundId={id}
               pundData={pundData}
-              onGenerateCycle={handleGenerateCycle}
-              generatingCycle={generatingCycle}
             />
           )}
 
