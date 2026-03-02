@@ -181,7 +181,7 @@ class GenerateCycleView(APIView):
         }, status=status.HTTP_201_CREATED)
     
 # ==========================
-#  MARK PAYMENT PAID
+#  MARK PAYMENT PAID for savings
 # ==========================
 class MarkPaymentPaidView(APIView):
     permission_classes = [IsAuthenticated]
@@ -275,17 +275,24 @@ class RequestLoanView(APIView):
 class ApproveLoanView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, loan_id):
 
-        loan = Loan.objects.filter(id=loan_id, status="PENDING").first()
+        # 1️⃣ Get Loan
+        loan = Loan.objects.filter(id=loan_id).first()
+
         if not loan:
             return Response({"error": "Loan not found"}, status=404)
-        if not loan.pund.is_active:
-            return Response({"error": "Pund is closed"}, status=400)
+
+        if loan.status != "PENDING":
+            return Response({"error": "Loan already processed"}, status=400)
 
         pund = loan.pund
 
-        # Only owner can approve
+        if not pund.is_active:
+            return Response({"error": "Pund is closed"}, status=400)
+
+        # 2️⃣ Owner Check
         is_owner = Membership.objects.filter(
             user=request.user,
             pund=pund,
@@ -296,12 +303,29 @@ class ApproveLoanView(APIView):
         if not is_owner:
             return Response({"error": "Only owner can approve"}, status=403)
 
+        # 3️⃣ 🚨 Check if member already has active loan
+        existing_active_loan = Loan.objects.filter(
+            pund=pund,
+            member=loan.member,
+            status__in=["APPROVED", "ACTIVE"]
+        ).exclude(id=loan.id).exists()
+
+        if existing_active_loan:
+            return Response(
+                {"error": "Member already has an active loan. Clear previous loan first."},
+                status=400
+            )
+
+        # 4️⃣ Validate cycles input
         serializer = LoanApproveSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
 
+        cycles = serializer.validated_data.get("cycles")
+
         today = timezone.now().date()
 
+        # 5️⃣ Get active structure
         structure = PundStructure.objects.filter(
             pund=pund,
             effective_from__lte=today
@@ -310,7 +334,10 @@ class ApproveLoanView(APIView):
         if not structure:
             return Response({"error": "Structure not found"}, status=400)
 
-        # Fund Check
+        if not cycles:
+            cycles = structure.default_loan_cycles
+
+        # 6️⃣ Fund Check
         total_collected_data = Payment.objects.filter(
             pund=pund,
             is_paid=True
@@ -326,25 +353,22 @@ class ApproveLoanView(APIView):
 
         total_active_loans = Loan.objects.filter(
             pund=pund,
-            is_active=True
-        ).aggregate(total=models.Sum("remaining_amount"))["total"] or Decimal("0")
+            status__in=["APPROVED", "ACTIVE"]
+        ).aggregate(
+            total=models.Sum("remaining_amount")
+        )["total"] or Decimal("0")
 
         available_fund = total_collected - total_active_loans
 
         if loan.principal_amount > available_fund:
             return Response({"error": "Insufficient fund in pund"}, status=400)
 
-        # Determine cycles
-        cycles = serializer.validated_data.get(
-            "cycles",
-            structure.default_loan_cycles
-        )
-
-        interest = (loan.principal_amount * structure.loan_interest_percentage) / 100
+        # 7️⃣ Calculate EMI
+        interest = (loan.principal_amount * structure.loan_interest_percentage) / Decimal("100")
         total_payable = loan.principal_amount + interest
         emi = total_payable / cycles
 
-        # Update loan
+        # 8️⃣ Update Loan
         loan.interest_percentage = structure.loan_interest_percentage
         loan.total_payable = total_payable
         loan.total_cycles = cycles
@@ -354,15 +378,15 @@ class ApproveLoanView(APIView):
         loan.approved_by = request.user
         loan.approved_at = timezone.now()
         loan.save()
-        FinanceAuditLog.objects.create(
-            pund=pund,
-            user=request.user,
-            action="Loan Approved",
-            description=f"Loan {loan.id} approved for {loan.member.email}"
-        )
 
-        # Generate installments (start next cycle)
-        delta = 7 if pund.pund_type == "WEEKLY" else 30
+        # 9️⃣ Create Installments
+        if pund.pund_type == "WEEKLY":
+            delta = 7
+        elif pund.pund_type == "DAILY":
+            delta = 1
+        else:
+            delta = 30  # Monthly default
+
         start_date = today + timedelta(days=delta)
 
         for i in range(1, cycles + 1):
@@ -370,11 +394,76 @@ class ApproveLoanView(APIView):
                 loan=loan,
                 cycle_number=i,
                 emi_amount=emi,
-                due_date=start_date + timedelta(days=(i - 1) * delta)
+                due_date=start_date + timedelta(days=(i - 1) * delta),
+                status="PENDING"  # Important
             )
 
-        return Response({"message": "Loan approved successfully"})
-    
+        # 🔟 Audit Log
+        FinanceAuditLog.objects.create(
+            pund=pund,
+            user=request.user,
+            action="Loan Approved",
+            description=f"Loan {loan.id} approved for {loan.member.email}"
+        )
+
+        return Response({"message": "Loan approved successfully"}, status=200)
+
+# ==========================
+# REJECT LOAN (OWNER)
+# ==========================
+class RejectLoanView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, loan_id):
+
+        loan = Loan.objects.filter(id=loan_id).first()
+
+        if not loan:
+            return Response({"error": "Loan not found"}, status=404)
+
+        if loan.status != "PENDING":
+            return Response({"error": "Only pending loans can be rejected"}, status=400)
+
+        pund = loan.pund
+
+        if not pund.is_active:
+            return Response({"error": "Pund is closed"}, status=400)
+
+        # Owner check
+        is_owner = Membership.objects.filter(
+            user=request.user,
+            pund=pund,
+            role="OWNER",
+            is_active=True
+        ).exists()
+
+        if not is_owner:
+            return Response({"error": "Only owner can reject"}, status=403)
+
+        reason = request.data.get("reason", "").strip()
+
+        if not reason:
+            return Response({"error": "Rejection reason is required"}, status=400)
+
+        # Update Loan
+        loan.status = "REJECTED"
+        loan.is_active = False
+        loan.rejection_reason = reason
+        loan.rejected_by = request.user
+        loan.rejected_at = timezone.now()
+        loan.save()
+
+        # Audit
+        FinanceAuditLog.objects.create(
+            pund=pund,
+            user=request.user,
+            action="Loan Rejected",
+            description=f"Loan {loan.id} rejected. Reason: {reason}"
+        )
+
+        return Response({"message": "Loan rejected successfully"}, status=200)
+       
 # ==========================
 # loan penalty application (scheduled task or cron job)  
 # ==========================
@@ -1041,3 +1130,55 @@ class CyclePaymentsView(APIView):
         
         return Response(cycles_data)
 
+
+# =========================
+# get all loan installments in pund (owner sees all, member sees only their loans)
+# =========================
+class LoanInstallmentListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pund_id):
+
+        pund = Pund.objects.filter(id=pund_id).first()
+        if not pund:
+            return Response({"error": "Pund not found"}, status=404)
+
+        membership = Membership.objects.filter(
+            user=request.user,
+            pund=pund,
+            is_active=True
+        ).first()
+
+        if not membership:
+            return Response({"error": "Not authorized"}, status=403)
+
+        # Owner sees all, Member sees only their loans
+        if membership.role == "OWNER":
+            installments = LoanInstallment.objects.filter(
+                loan__pund=pund
+            ).select_related("loan", "loan__member")
+        else:
+            installments = LoanInstallment.objects.filter(
+                loan__pund=pund,
+                loan__member=request.user
+            ).select_related("loan", "loan__member")
+
+        data = []
+
+        for inst in installments.order_by("loan_id", "cycle_number"):
+            loan = inst.loan
+
+            data.append({
+                "loan_id": loan.id,
+                "member_email": loan.member.email,
+                "principal_amount": str(loan.principal_amount),
+                "loan_status": loan.status,
+                "cycle_number": inst.cycle_number,
+                "emi_amount": str(inst.emi_amount),
+                "penalty_amount": str(inst.penalty_amount),
+                "is_paid": inst.is_paid,
+                "due_date": inst.due_date,
+            })
+
+        return Response(data)
+    

@@ -109,7 +109,15 @@ class LoanInstallment(models.Model):
         on_delete=models.CASCADE,
         related_name="installments"
     )
-
+    status = models.CharField(
+    max_length=20,
+    choices=[
+        ("PENDING", "Pending"),
+        ("PAID", "Paid"),
+        ("OVERDUE", "Overdue"),
+    ],
+    default="PENDING"
+)
     cycle_number = models.IntegerField()
     emi_amount = models.DecimalField(max_digits=12, decimal_places=2)
     penalty_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
