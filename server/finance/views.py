@@ -515,7 +515,6 @@ class LoanDetailView(APIView):
 # ==========================
 # pund fund summary view 
 # ==========================
-
 class FundSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -524,15 +523,17 @@ class FundSummaryView(APIView):
         if not pund:
             return Response({"error": "Pund not found"}, status=404)
 
+        # Check if user is a member of this pund
         is_member = Membership.objects.filter(
             user=request.user,
-            pund=pund
+            pund=pund,
+            is_active=True
         ).exists()
 
         if not is_member:
             return Response({"error": "Not authorized"}, status=403)
 
-        #  GROUP TOTAL - Include penalties (group money)
+        # GROUP TOTAL - Include penalties
         total_collected_data = Payment.objects.filter(
             pund=pund,
             is_paid=True
@@ -542,14 +543,15 @@ class FundSummaryView(APIView):
         )
         
         total_collected = (total_collected_data["total_amount"] or Decimal("0")) + \
-                          (total_collected_data["total_penalty"] or Decimal("0")) 
-        # For available fund calculation, use principal_amount (actual money lent)
+                          (total_collected_data["total_penalty"] or Decimal("0"))
+
+        # For available fund calculation, use principal_amount
         total_active_loans_principal = Loan.objects.filter(
             pund=pund,
             is_active=True
         ).aggregate(total=models.Sum("principal_amount"))["total"] or Decimal("0")
 
-        # For display, show the total with interest (what members owe)
+        # For display, show the total with interest
         total_active_loans_with_interest = Loan.objects.filter(
             pund=pund,
             is_active=True
@@ -558,12 +560,12 @@ class FundSummaryView(APIView):
         available = total_collected - total_active_loans_principal
 
         return Response({
-            "total_collected": str(total_collected), 
+            "total_collected": str(total_collected),
             "active_loan_outstanding": str(total_active_loans_with_interest),
             "active_loan_principal": str(total_active_loans_principal),
             "available_fund": str(available)
         })
-
+    
 # ==========================
 #loan view for member
 # ==========================
@@ -661,16 +663,17 @@ class SavingSummaryView(APIView):
         if not pund:
             return Response({"error": "Pund not found"}, status=404)
 
-        # Only owner can see full summary
+        # Check if user is a member of this pund (any role)
         membership = Membership.objects.filter(
             user=request.user,
             pund=pund,
-            role="OWNER"
-        ).exists()
+            is_active=True
+        ).first()
 
         if not membership:
-            return Response({"error": "Only owner can view saving summary"}, status=403)
+            return Response({"error": "You are not a member of this pund"}, status=403)
 
+        # Now both OWNER and MEMBER can view the summary
         payments = Payment.objects.filter(pund=pund)
 
         total_cycles = payments.values("cycle_number").distinct().count()
@@ -679,14 +682,14 @@ class SavingSummaryView(APIView):
             total=models.Sum("amount")
         )["total"] or Decimal("0")
 
-        # ✅ GROUP TOTAL - Include penalties (group money)
+        # GROUP TOTAL - Include penalties
         total_paid_data = payments.filter(is_paid=True).aggregate(
             total_amount=models.Sum("amount"),
             total_penalty=models.Sum("penalty_amount")
         )
         
         total_paid = (total_paid_data["total_amount"] or Decimal("0")) + \
-                     (total_paid_data["total_penalty"] or Decimal("0"))  # ✅ Include penalties
+                     (total_paid_data["total_penalty"] or Decimal("0"))
 
         total_unpaid = payments.filter(is_paid=False).aggregate(
             total=models.Sum("amount")
@@ -706,7 +709,7 @@ class SavingSummaryView(APIView):
             "total_cycles": total_cycles,
             "total_members": total_members,
             "total_expected_savings": str(total_expected),
-            "total_paid_savings": str(total_paid),  # ✅ Includes penalties (group total)
+            "total_paid_savings": str(total_paid),
             "total_unpaid_savings": str(total_unpaid),
             "total_penalties_collected": str(total_penalty),
         })

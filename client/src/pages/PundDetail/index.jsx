@@ -66,16 +66,18 @@ const PundDetail = () => {
     handleRefetch();
   }, [activeTab]);
 
-  // Base menu items for all users - CORRECT ORDER
-  const baseMenuItems = [
+  // Base menu items for MEMBERS only - Only Overview and Loans
+  const memberMenuItems = [
+    { id: 'overview', label: 'Overview', icon: FiPieChart },
+    { id: 'loans', label: 'Loans', icon: FiCreditCard },
+  ];
+
+  // Full menu items for OWNERS
+  const ownerMenuItems = [
     { id: 'overview', label: 'Overview', icon: FiPieChart },
     { id: 'savings', label: 'Savings', icon: FiTrendingUp },
     { id: 'loans', label: 'Loans', icon: FiCreditCard },
     { id: 'payments', label: 'Payments', icon: FiClock },
-  ];
-
-  // Owner-only menu items
-  const ownerMenuItems = [
     { id: 'members', label: 'Members', icon: FiUsers },
     { id: 'audit', label: 'Audit Logs', icon: FiShield },
     { id: 'structure', label: 'Pund Structure', icon: FiSliders },
@@ -86,18 +88,16 @@ const PundDetail = () => {
   ];
 
   // Combine menu items based on role
-  const menuItems = role === 'OWNER'
-    ? [...baseMenuItems, ...ownerMenuItems]
-    : baseMenuItems;
+  const menuItems = role === 'OWNER' ? ownerMenuItems : memberMenuItems;
 
-  // ✅ Make handleRefetch async with await
+  // ✅ FIXED: Make handleRefetch async with correct condition
   const handleRefetch = async () => {
     try {
       await refetch();
 
       if (role === 'OWNER') {
         await refetchOwner();
-      } else {
+      } else if (role === 'MEMBER') {
         await refetchMember();
       }
     } catch (err) {
@@ -116,7 +116,7 @@ const PundDetail = () => {
     try {
       const response = await api.post(`/finance/pund/${id}/generate-cycle/`, {});
       toast.success(response.data.message || 'Cycle generated successfully');
-      await handleRefetch(); // ✅ Added await
+      await handleRefetch();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to generate cycle');
     } finally {
@@ -138,7 +138,7 @@ const PundDetail = () => {
       }
       await api.post(`/finance/pund/${id}/set-structure/`, payload);
       toast.success('Structure updated successfully');
-      await handleRefetch(); // ✅ Added await
+      await handleRefetch();
       setActiveTab('overview');
     } catch (error) {
       toast.error('Failed to update structure');
@@ -149,7 +149,7 @@ const PundDetail = () => {
     try {
       await api.post(`/finance/pund/${id}/request-loan/`, loanRequest);
       toast.success('Loan request submitted');
-      await handleRefetch(); // ✅ Added await
+      await handleRefetch();
     } catch (error) {
       toast.error('Failed to request loan');
     }
@@ -160,7 +160,7 @@ const PundDetail = () => {
     try {
       await api.post(`/finance/loan/${loanId}/approve/`, { cycles });
       toast.success('Loan approved');
-      await handleRefetch(); // ✅ Added await
+      await handleRefetch();
     } catch (error) {
       toast.error('Failed to approve loan');
     } finally {
@@ -172,7 +172,7 @@ const PundDetail = () => {
     try {
       await api.post(`/finance/payment/${paymentId}/mark-paid/`);
       toast.success('Payment marked as paid');
-      await handleRefetch(); // ✅ Added await
+      await handleRefetch();
     } catch (error) {
       toast.error('Failed to mark payment');
     }
@@ -182,7 +182,7 @@ const PundDetail = () => {
     try {
       await api.post(`/finance/installment/${installmentId}/mark-paid/`);
       toast.success('Installment marked as paid');
-      await handleRefetch(); // ✅ Added await
+      await handleRefetch();
     } catch (error) {
       toast.error('Failed to mark installment');
     }
@@ -192,7 +192,7 @@ const PundDetail = () => {
     try {
       await api.post(`/punds/${id}/close/`);
       toast.success('Pund closed successfully');
-      await handleRefetch(); // ✅ Added await
+      await handleRefetch();
       setActiveTab('overview');
     } catch (error) {
       toast.error('Failed to close pund');
@@ -203,7 +203,7 @@ const PundDetail = () => {
     try {
       await api.post(`/punds/${id}/reopen/`);
       toast.success('Pund reopened successfully');
-      await handleRefetch(); // ✅ Added await
+      await handleRefetch();
       setActiveTab('overview');
     } catch (error) {
       toast.error('Failed to reopen pund');
@@ -643,7 +643,8 @@ const PundDetail = () => {
             />
           )}
 
-          {activeTab === 'savings' && (
+          {/* Savings tab - Only for OWNER */}
+          {activeTab === 'savings' && role === 'OWNER' && (
             <SavingsTab
               role={role}
               savingSummary={savingSummary}
@@ -668,6 +669,7 @@ const PundDetail = () => {
             />
           )}
 
+          {/* Payments tab - Only for OWNER */}
           {activeTab === 'payments' && role === 'OWNER' && (
             <PaymentsTab
               pundId={id}
@@ -675,6 +677,7 @@ const PundDetail = () => {
             />
           )}
 
+          {/* Members tab - Only for OWNER */}
           {activeTab === 'members' && role === 'OWNER' && (
             <MembersTab
               members={pundData.members || []}
@@ -685,10 +688,12 @@ const PundDetail = () => {
             />
           )}
 
+          {/* Audit tab - Only for OWNER */}
           {activeTab === 'audit' && role === 'OWNER' && (
             <AuditLogsTab auditLogs={auditLogs || []} />
           )}
 
+          {/* Structure tab - Only for OWNER */}
           {activeTab === 'structure' && role === 'OWNER' && (
             <StructureTab
               pundData={pundData}
@@ -696,6 +701,7 @@ const PundDetail = () => {
             />
           )}
 
+          {/* Close Pund tab - Only for OWNER */}
           {activeTab === 'close' && role === 'OWNER' && pundData.pund_active && (
             <ClosePundTab
               pundName={pundData.pund_name}
@@ -704,6 +710,7 @@ const PundDetail = () => {
             />
           )}
 
+          {/* Reopen Pund tab - Only for OWNER */}
           {activeTab === 'reopen' && role === 'OWNER' && !pundData.pund_active && (
             <ReopenPundTab
               pundName={pundData.pund_name}
