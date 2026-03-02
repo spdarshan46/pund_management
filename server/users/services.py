@@ -11,7 +11,7 @@ def generate_otp():
     return str(random.randint(100000, 999999))
 
 
-def send_otp_email(user):
+def send_otp_email(user, target_email=None):
     otp = generate_otp()
     user.otp = otp
     user.otp_created_at = timezone.now()
@@ -21,8 +21,8 @@ def send_otp_email(user):
     send_mail(
         "Your OTP Code",
         f"Your OTP is {otp}",
-        "your_email@gmail.com",
-        [user.email],
+        settings.DEFAULT_FROM_EMAIL,
+        [target_email if target_email else user.email],
         fail_silently=False,
     )
 

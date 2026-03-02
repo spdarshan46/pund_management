@@ -30,7 +30,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=100, blank=True, null=True)
     mobile = models.CharField(max_length=15, unique=True, blank=True, null=True)
-
+    pending_email = models.EmailField(null=True, blank=True)
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
 

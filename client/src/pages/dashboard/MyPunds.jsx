@@ -1,63 +1,17 @@
 // src/pages/dashboard/MyPunds.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiSearch, FiEye, FiGrid, FiList, FiChevronRight, FiHome } from 'react-icons/fi';
 import { motion } from 'framer-motion';
-import api from '../../services/api';
 import { toast } from 'react-hot-toast';
 
 const MyPunds = ({ punds: initialPunds, searchTerm: initialSearch = '', onPundClick }) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [viewMode, setViewMode] = useState('grid');
-  const [punds, setPunds] = useState(initialPunds || []);
-  const [loading, setLoading] = useState(false);
-  const [fetchingIds, setFetchingIds] = useState({});
-
-  // Fetch member count for each pund
-  useEffect(() => {
-    const fetchMemberCounts = async () => {
-      if (!punds.length) return;
-      
-      setLoading(true);
-      try {
-        const updatedPunds = await Promise.all(
-          punds.map(async (pund) => {
-            // Skip if we already have member count
-            if (pund.member_count !== undefined && pund.member_count > 0) {
-              return pund;
-            }
-            
-            try {
-              setFetchingIds(prev => ({ ...prev, [pund.pund_id]: true }));
-              const response = await api.get(`/punds/${pund.pund_id}/`);
-              console.log(`Pund ${pund.pund_id} details:`, response.data);
-              
-              return {
-                ...pund,
-                member_count: response.data.member_count || response.data.members?.length || 0,
-                pund_type: response.data.pund_type || pund.pund_type,
-                pund_active: response.data.pund_active !== undefined ? response.data.pund_active : pund.pund_active
-              };
-            } catch (error) {
-              console.error(`Error fetching pund ${pund.pund_id}:`, error);
-              return pund;
-            } finally {
-              setFetchingIds(prev => ({ ...prev, [pund.pund_id]: false }));
-            }
-          })
-        );
-        setPunds(updatedPunds);
-      } catch (error) {
-        console.error('Error fetching member counts:', error);
-        toast.error('Failed to load member counts');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchMemberCounts();
-  }, [initialPunds]);
+  
+  // initialPunds already contains the correct member_count from your API
+  const punds = initialPunds || [];
 
   const filteredPunds = punds.filter(p => 
     p.pund_name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -161,11 +115,7 @@ const MyPunds = ({ punds: initialPunds, searchTerm: initialSearch = '', onPundCl
                 <div className="flex justify-between text-[10px]">
                   <span className="text-gray-500">Members</span>
                   <span className="font-medium text-gray-900">
-                    {fetchingIds[pund.pund_id] ? (
-                      <span className="inline-block w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
-                    ) : (
-                      pund.member_count || 0
-                    )}
+                    {pund.member_count || 0}
                   </span>
                 </div>
               </div>
@@ -196,17 +146,13 @@ const MyPunds = ({ punds: initialPunds, searchTerm: initialSearch = '', onPundCl
               </div>
               <div className="flex items-center space-x-2">
                 <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${getRoleBadgeColor(pund.role)}`}>
-                  {pund.role || 'member'}
+                  {pund.role ?? 'member'}
                 </span>
                 <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${getStatusBadge(pund.pund_active)}`}>
                   {pund.pund_active ? 'Active' : 'Inactive'}
                 </span>
                 <span className="text-[10px] font-medium text-gray-900">
-                  {fetchingIds[pund.pund_id] ? (
-                    <span className="inline-block w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
-                  ) : (
-                    `${pund.member_count || 0} members`
-                  )}
+                  {pund.member_count ?? 0} members
                 </span>
                 <FiChevronRight className="w-3.5 h-3.5 text-gray-400" />
               </div>

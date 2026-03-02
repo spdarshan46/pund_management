@@ -232,7 +232,9 @@ class ResetPasswordView(APIView):
 
             return Response({"message": "Password reset successful"})
 
-
+# -----------------------------
+# CHANGE PASSWORD
+# -----------------------------
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -258,3 +260,68 @@ class ChangePasswordView(APIView):
             return Response({"message": "Password changed successfully"})
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+# -----------------------------
+# EDIT PROFILE
+# -----------------------------
+class EditProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        user = request.user
+
+        name = request.data.get("name")
+        mobile = request.data.get("mobile")
+        email = request.data.get("email")
+
+        if name:
+            user.name = name
+
+        if mobile:
+            user.mobile = mobile
+
+        # Email change
+        if email and email != user.email:
+            if User.objects.filter(email=email).exists():
+                return Response({"error": "Email already in use"}, status=400)
+
+            user.pending_email = email
+            user.save()
+
+            send_otp_email(user, target_email=email)
+
+            return Response({
+                "message": "OTP sent to new email. Verify to complete change."
+            })
+
+        user.save()
+
+        return Response({"message": "Profile updated successfully"})
+
+# -----------------------------
+# VERIFY NEW EMAIL OTP
+# -----------------------------
+class VerifyEmailChangeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        otp = request.data.get("otp")
+        user = request.user
+
+        if not user.pending_email:
+            return Response({"error": "No pending email change"}, status=400)
+
+        if user.otp != otp:
+            return Response({"error": "Invalid OTP"}, status=400)
+
+        if timezone.now() > user.otp_created_at + timedelta(minutes=5):
+            return Response({"error": "OTP expired"}, status=400)
+
+        user.email = user.pending_email
+        user.pending_email = None
+        user.email_verified = True
+        user.otp = None
+        user.save()
+
+        return Response({"message": "Email updated successfully"})
+

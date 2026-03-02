@@ -9,7 +9,7 @@ const StructureTab = ({ pundData, onSubmit }) => {
     loan_interest_percentage: pundData?.structure?.loan_interest_percentage || '',
     missed_saving_penalty: pundData?.structure?.missed_saving_penalty || '',
     missed_loan_penalty: pundData?.structure?.missed_loan_penalty || '',
-    default_loan_cycles: pundData?.structure?.default_loan_cycles || '6'
+    default_loan_cycles: pundData?.structure?.default_loan_cycles || '10'
   });
   const [submitting, setSubmitting] = useState(false);
 

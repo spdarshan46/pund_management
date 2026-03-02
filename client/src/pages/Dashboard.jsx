@@ -44,7 +44,7 @@ const Dashboard = () => {
     const email = localStorage.getItem('user_email') || '';
     setUserName(name);
     setUserEmail(email);
-  }, []);
+  }, [location.pathname]);
 
   const fetchMyPunds = async () => {
     setLoading(true);

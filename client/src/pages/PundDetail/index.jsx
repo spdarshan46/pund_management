@@ -36,7 +36,7 @@ import autoTable from 'jspdf-autotable';
 
 import OverviewTab from './components/OverviewTab';
 import SavingsTab from './components/SavingsTab';
-import MembersTab from './components/MembersTab';
+import MembersTab from './components/MembersTab/index';
 import LoansTab from './components/LoansTab';
 import AuditLogsTab from './components/AuditLogsTab';
 import PaymentsTab from './components/PaymentsTab';
@@ -61,16 +61,16 @@ const PundDetail = () => {
   const { fundSummary, savingSummary, loans, auditLogs, refetchOwner } = useOwnerData(id, role);
   const { myFinancials, myLoans, refetchMember } = useMemberData(role);
 
-  // Base menu items for all users with updated icons
+  // Base menu items for all users - CORRECT ORDER
   const baseMenuItems = [
     { id: 'overview', label: 'Overview', icon: FiPieChart },
+    { id: 'savings', label: 'Savings', icon: FiTrendingUp },
     { id: 'loans', label: 'Loans', icon: FiCreditCard },
+    { id: 'payments', label: 'Payments', icon: FiClock },
   ];
 
-  // Owner-only menu items with updated icons
+  // Owner-only menu items
   const ownerMenuItems = [
-    { id: 'savings', label: 'Savings', icon: FiTrendingUp },
-    { id: 'payments', label: 'Payments', icon: FiClock },
     { id: 'members', label: 'Members', icon: FiUsers },
     { id: 'audit', label: 'Audit Logs', icon: FiShield },
     { id: 'structure', label: 'Pund Structure', icon: FiSliders },
@@ -671,6 +671,8 @@ const PundDetail = () => {
               members={pundData.members || []}
               totalMembers={pundData.total_members || pundData.members?.length || 0}
               pundId={id}
+              pundData={pundData}
+              onRefresh={handleRefetch}
             />
           )}
           
