@@ -254,6 +254,7 @@ class PundDetailView(APIView):
                 "effective_from": structure.effective_from,
                 "missed_saving_penalty": structure.missed_saving_penalty,
                 "missed_loan_penalty": structure.missed_loan_penalty,
+                "default_loan_cycles": structure.default_loan_cycles
             }
 
         # ✅ Only real members (exclude OWNER)

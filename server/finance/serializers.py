@@ -11,6 +11,7 @@ class PundStructureSerializer(serializers.ModelSerializer):
             "missed_saving_penalty",
             "missed_loan_penalty",
             "default_loan_cycles",
+            "effective_from",
         ]
 
 

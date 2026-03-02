@@ -492,6 +492,7 @@ class LoanDetailView(APIView):
             "status": loan.status,
             "installments": data
         })
+
 # ==========================
 # pund fund summary view 
 # ==========================
