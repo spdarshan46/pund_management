@@ -11,10 +11,15 @@ import {
   FiAlertCircle,
   FiCheck,
   FiX,
-  FiLoader
+  FiLoader,
+  FiInfo,
+  FiRefreshCw,
+  FiEye
 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import LoanModal from './Modals/LoanModal';
+import InstallmentModal from './Modals/InstallmentModal';
+import api from '../../../services/api';
 
 const formatCurrency = (amount) => {
   if (amount === undefined || amount === null) return '₹ 0';
@@ -31,29 +36,153 @@ const LoansTab = ({
   onMarkInstallment,
   onRequestLoan,
   onRejectLoan,
-  approvingLoan = false 
+  approvingLoan = false,
+  fundSummary: propFundSummary,
+  onRefresh
 }) => {
-  const [selectedLoan, setSelectedLoan] = useState(null);
   const [showLoanModal, setShowLoanModal] = useState(false);
+  const [showInstallmentModal, setShowInstallmentModal] = useState(false);
+  const [selectedLoanForInstallments, setSelectedLoanForInstallments] = useState(null);
+  const [installments, setInstallments] = useState([]);
+  const [loadingInstallments, setLoadingInstallments] = useState(false);
   const [expandedLoan, setExpandedLoan] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectLoanId, setRejectLoanId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [loading, setLoading] = useState(false);
+  const [memberAvailableFund, setMemberAvailableFund] = useState(0);
+  const [fetchingFund, setFetchingFund] = useState(false);
+  const [markingPaid, setMarkingPaid] = useState(false);
   
-  // Calculate available fund for validation with safe access
-  const availableFund = pundData?.fund_summary?.available_fund || 0;
+  const availableFund = propFundSummary?.available_fund || pundData?.fund_summary?.available_fund || 0;
 
-  // Debug logs
   useEffect(() => {
-    console.log('LoansTab - Role:', role);
-    console.log('LoansTab - Loans:', loans);
-    console.log('LoansTab - MyLoans:', myLoans);
-    console.log('LoansTab - PundData:', pundData);
-    console.log('LoansTab - Available Fund:', availableFund);
-  }, [role, loans, myLoans, pundData, availableFund]);
+    if (role === 'MEMBER' && pundData?.pund_id) {
+      fetchAvailableFund();
+    }
+  }, [role, pundData]);
 
-  // If no data, show loading
+  const fetchAvailableFund = async () => {
+    if (fetchingFund) return;
+    setFetchingFund(true);
+    try {
+      const response = await api.get(`/finance/pund/${pundData.pund_id}/fund-summary/`);
+      if (response.data?.available_fund) {
+        setMemberAvailableFund(parseFloat(response.data.available_fund));
+      }
+    } catch (error) {
+      console.log('Could not fetch fund summary');
+    } finally {
+      setFetchingFund(false);
+    }
+  };
+
+  const handleViewInstallments = async (loan) => {
+    const loanId = loan?.loan_id || loan?.id;
+    if (!loanId) {
+      toast.error('Invalid loan data');
+      return;
+    }
+
+    console.log('Viewing installments for loan:', loanId);
+    setSelectedLoanForInstallments(loan);
+    setLoadingInstallments(true);
+    
+    try {
+      const response = await api.get(`/finance/loan/${pundData.pund_id}/installments/`);
+      console.log('All installments response:', response.data);
+      
+      // Filter installments for this specific loan - compare as numbers
+      const loanInstallments = response.data.filter(inst => 
+        parseInt(inst.loan_id) === parseInt(loanId)
+      );
+      
+      console.log('Filtered installments for loan', loanId, ':', loanInstallments);
+      
+      if (loanInstallments.length === 0) {
+        toast.info('No installments found for this loan');
+      }
+      
+      setInstallments(loanInstallments);
+      setShowInstallmentModal(true);
+    } catch (error) {
+      console.error('Error fetching installments:', error);
+      toast.error('Failed to load installments');
+    } finally {
+      setLoadingInstallments(false);
+    }
+  };
+
+  const handleMarkInstallmentPaid = async (installmentId) => {
+    setMarkingPaid(true);
+    try {
+      await api.post(`/finance/installment/${installmentId}/mark-paid/`);
+      toast.success('Installment marked as paid');
+      
+      // Refresh installments
+      const instResponse = await api.get(`/finance/loan/${pundData.pund_id}/installments/`);
+      const updatedInstallments = instResponse.data.filter(
+        inst => parseInt(inst.loan_id) === parseInt(selectedLoanForInstallments?.loan_id)
+      );
+      setInstallments(updatedInstallments);
+      
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to mark installment as paid');
+    } finally {
+      setMarkingPaid(false);
+    }
+  };
+
+  const handleApproveLoanClick = (loan) => {
+    const loanId = loan?.loan_id || loan?.id;
+    if (!loanId) {
+      toast.error('Invalid loan data');
+      return;
+    }
+    const cycles = prompt('Enter number of cycles for repayment:', '6');
+    if (cycles && parseInt(cycles) > 0) {
+      onApproveLoan(loanId, parseInt(cycles));
+    }
+  };
+
+  const handleRejectClick = (loan) => {
+    const loanId = loan?.loan_id || loan?.id;
+    setRejectLoanId(loanId);
+    setShowRejectModal(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectReason.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.post(`/finance/loan/${rejectLoanId}/reject/`, { reason: rejectReason });
+      toast.success('Loan rejected successfully');
+      
+      if (onRejectLoan) onRejectLoan(rejectLoanId, rejectReason);
+      
+      setShowRejectModal(false);
+      setRejectReason('');
+      setRejectLoanId(null);
+      
+      if (onRefresh) onRefresh();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to reject loan');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateRemaining = (loan) => {
+    const totalPayable = parseFloat(loan?.total_payable || loan?.principal || 0);
+    const paid = parseFloat(loan?.paid_amount || 0);
+    return Math.max(0, totalPayable - paid);
+  };
+
   if (!role) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -63,52 +192,22 @@ const LoansTab = ({
     );
   }
 
-  // Owner View - Complete Sections
+  // Owner View
   if (role === 'OWNER') {
-    // Filter loans for owner view with safe access
-    const pendingRequests = Array.isArray(loans) ? loans.filter(loan => loan?.status === 'PENDING') : [];
-    const activeLoans = Array.isArray(loans) ? loans.filter(loan => 
-      loan?.status === 'APPROVED' || loan?.status === 'ACTIVE'
-    ) : [];
-    const closedLoans = Array.isArray(loans) ? loans.filter(loan => loan?.status === 'CLOSED') : [];
-    const rejectedLoans = Array.isArray(loans) ? loans.filter(loan => loan?.status === 'REJECTED') : [];
+    const pendingRequests = loans.filter(loan => loan?.status === 'PENDING');
+    const activeLoans = loans.filter(loan => loan?.status === 'APPROVED' || loan?.status === 'ACTIVE');
+    const closedLoans = loans.filter(loan => loan?.status === 'CLOSED');
+    const rejectedLoans = loans.filter(loan => loan?.status === 'REJECTED');
 
     const getStatusBadge = (status) => {
       switch(status) {
-        case 'PENDING':
-          return { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: FiClock, label: 'Pending' };
-        case 'APPROVED':
-          return { bg: 'bg-blue-100', text: 'text-blue-700', icon: FiCheckCircle, label: 'Approved' };
-        case 'ACTIVE':
-          return { bg: 'bg-green-100', text: 'text-green-700', icon: FiTrendingUp, label: 'Active' };
-        case 'CLOSED':
-          return { bg: 'bg-gray-100', text: 'text-gray-700', icon: FiCheckCircle, label: 'Closed' };
-        case 'REJECTED':
-          return { bg: 'bg-red-100', text: 'text-red-700', icon: FiXCircle, label: 'Rejected' };
-        default:
-          return { bg: 'bg-gray-100', text: 'text-gray-700', icon: FiClock, label: status || 'Unknown' };
+        case 'PENDING': return { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: FiClock, label: 'Pending' };
+        case 'APPROVED': return { bg: 'bg-blue-100', text: 'text-blue-700', icon: FiCheckCircle, label: 'Approved' };
+        case 'ACTIVE': return { bg: 'bg-green-100', text: 'text-green-700', icon: FiTrendingUp, label: 'Active' };
+        case 'CLOSED': return { bg: 'bg-gray-100', text: 'text-gray-700', icon: FiCheckCircle, label: 'Closed' };
+        case 'REJECTED': return { bg: 'bg-red-100', text: 'text-red-700', icon: FiXCircle, label: 'Rejected' };
+        default: return { bg: 'bg-gray-100', text: 'text-gray-700', icon: FiClock, label: status };
       }
-    };
-
-    const calculateProgress = (loan) => {
-      if (!loan?.total_payable || !loan?.paid_amount) return 0;
-      return Math.round((loan.paid_amount / loan.total_payable) * 100);
-    };
-
-    const handleRejectClick = (loanId) => {
-      setRejectLoanId(loanId);
-      setShowRejectModal(true);
-    };
-
-    const handleConfirmReject = () => {
-      if (onRejectLoan) {
-        onRejectLoan(rejectLoanId, rejectReason);
-      } else {
-        toast.success('Loan rejected successfully');
-      }
-      setShowRejectModal(false);
-      setRejectReason('');
-      setRejectLoanId(null);
     };
 
     return (
@@ -117,7 +216,7 @@ const LoansTab = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="bg-white border border-gray-200 rounded-lg p-2">
             <p className="text-[10px] text-gray-500">Total Loans</p>
-            <p className="text-sm font-bold text-gray-900">{loans?.length || 0}</p>
+            <p className="text-sm font-bold text-gray-900">{loans.length}</p>
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-2">
             <p className="text-[10px] text-gray-500">Pending</p>
@@ -133,7 +232,7 @@ const LoansTab = ({
           </div>
         </div>
 
-        {/* Section 1: Pending Loan Requests */}
+        {/* Pending Loans */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="bg-yellow-50 px-3 py-2 border-b border-yellow-200">
             <div className="flex items-center justify-between">
@@ -146,7 +245,6 @@ const LoansTab = ({
               </span>
             </div>
           </div>
-
           <div className="p-3">
             {pendingRequests.length === 0 ? (
               <div className="text-center py-6">
@@ -155,92 +253,70 @@ const LoansTab = ({
               </div>
             ) : (
               <div className="space-y-2">
-                {pendingRequests.map((loan) => (
-                  <motion.div
-                    key={loan?.id || Math.random()}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="border border-yellow-200 rounded-lg overflow-hidden"
-                  >
-                    {/* Loan Request Header */}
-                    <div className="bg-yellow-50/50 px-3 py-2 flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-7 h-7 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white text-[10px] font-bold">
-                          {loan?.member_name?.charAt(0).toUpperCase() || 'U'}
+                {pendingRequests.map((loan) => {
+                  const memberName = loan?.member?.split('@')[0] || 'Unknown';
+                  const principal = parseFloat(loan?.principal || 0);
+                  
+                  return (
+                    <div key={loan.loan_id} className="border border-yellow-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-7 h-7 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white text-[10px] font-bold">
+                            {memberName.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-900">{memberName}</p>
+                            <p className="text-[8px] text-gray-500">{loan.member}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-900">{loan?.member_name || 'Unknown'}</p>
-                          <p className="text-[8px] text-gray-500">
-                            Requested: {loan?.created_at ? new Date(loan.created_at).toLocaleDateString() : 'N/A'}
-                          </p>
-                        </div>
+                        <span className="text-[10px] font-bold text-yellow-700">{formatCurrency(principal)}</span>
                       </div>
-                      <span className="text-[10px] font-bold text-yellow-700">
-                        {formatCurrency(loan?.principal_amount)}
-                      </span>
-                    </div>
-
-                    {/* Loan Details */}
-                    <div className="p-3 bg-white">
                       <div className="grid grid-cols-2 gap-2 mb-3">
                         <div className="bg-gray-50 rounded p-2">
                           <p className="text-[8px] text-gray-500">Principal</p>
-                          <p className="text-[10px] font-bold text-gray-900">{formatCurrency(loan?.principal_amount)}</p>
+                          <p className="text-[10px] font-bold text-gray-900">{formatCurrency(principal)}</p>
                         </div>
                         <div className="bg-blue-50 rounded p-2">
                           <p className="text-[8px] text-blue-600">Available Fund</p>
-                          <p className={`text-[10px] font-bold ${loan?.principal_amount <= availableFund ? 'text-green-600' : 'text-red-600'}`}>
+                          <p className={`text-[10px] font-bold ${principal <= availableFund ? 'text-green-600' : 'text-red-600'}`}>
                             {formatCurrency(availableFund)}
                           </p>
                         </div>
                       </div>
-
-                      {/* Validation Warning */}
-                      {loan?.principal_amount > availableFund && (
+                      {principal > availableFund && (
                         <div className="bg-red-50 rounded p-2 mb-3 flex items-start space-x-2">
                           <FiAlertCircle className="w-3.5 h-3.5 text-red-600 flex-shrink-0 mt-0.5" />
                           <p className="text-[9px] text-red-700">
-                            Insufficient funds! Requested amount exceeds available balance by {formatCurrency(loan.principal_amount - availableFund)}
+                            Insufficient funds! Requested amount exceeds available balance by {formatCurrency(principal - availableFund)}
                           </p>
                         </div>
                       )}
-
-                      {/* Action Buttons */}
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => {
-                            const cycles = prompt('Enter number of cycles for repayment:', '6');
-                            if (cycles && parseInt(cycles) > 0) {
-                              onApproveLoan(loan.id, parseInt(cycles));
-                            }
-                          }}
-                          disabled={approvingLoan || loan?.principal_amount > availableFund}
+                          onClick={() => handleApproveLoanClick(loan)}
+                          disabled={approvingLoan || principal > availableFund}
                           className={`flex-1 px-2 py-1.5 rounded-lg text-[9px] flex items-center justify-center space-x-1 ${
-                            loan?.principal_amount <= availableFund
-                              ? 'bg-green-600 text-white hover:bg-green-700'
-                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            principal <= availableFund ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           }`}
                         >
-                          <FiCheck className="w-3 h-3" />
-                          <span>Approve</span>
+                          <FiCheck className="w-3 h-3" /><span>Approve</span>
                         </button>
                         <button
-                          onClick={() => handleRejectClick(loan.id)}
+                          onClick={() => handleRejectClick(loan)}
                           className="flex-1 px-2 py-1.5 bg-red-100 text-red-700 rounded-lg text-[9px] hover:bg-red-200 flex items-center justify-center space-x-1"
                         >
-                          <FiX className="w-3 h-3" />
-                          <span>Reject</span>
+                          <FiX className="w-3 h-3" /><span>Reject</span>
                         </button>
                       </div>
                     </div>
-                  </motion.div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
 
-        {/* Section 2: Active/Approved Loans */}
+        {/* Active Loans */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="bg-green-50 px-3 py-2 border-b border-green-200">
             <div className="flex items-center justify-between">
@@ -253,7 +329,6 @@ const LoansTab = ({
               </span>
             </div>
           </div>
-
           <div className="p-3">
             {activeLoans.length === 0 ? (
               <div className="text-center py-6">
@@ -265,131 +340,71 @@ const LoansTab = ({
                 {activeLoans.map((loan) => {
                   const status = getStatusBadge(loan?.status);
                   const StatusIcon = status.icon;
-                  const progress = calculateProgress(loan);
-                  
+                  const memberName = loan?.member?.split('@')[0] || 'Unknown';
+                  const principal = parseFloat(loan?.principal || 0);
+                  const paid = parseFloat(loan?.paid_amount || 0);
+                  const remaining = principal - paid; // For approved loans, remaining should be principal - paid
+                  const progress = principal > 0 ? Math.round((paid / principal) * 100) : 0;
+
                   return (
-                    <motion.div
-                      key={loan?.id || Math.random()}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="border border-green-200 rounded-lg overflow-hidden"
-                    >
-                      {/* Loan Header */}
+                    <div key={loan.loan_id} className="border border-green-200 rounded-lg overflow-hidden">
                       <div 
                         className="bg-green-50/50 px-3 py-2 flex items-center justify-between cursor-pointer"
-                        onClick={() => setExpandedLoan(expandedLoan === loan?.id ? null : loan?.id)}
+                        onClick={() => setExpandedLoan(expandedLoan === loan.loan_id ? null : loan.loan_id)}
                       >
                         <div className="flex items-center space-x-2">
                           <div className="w-7 h-7 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white text-[10px] font-bold">
-                            {loan?.member_name?.charAt(0).toUpperCase() || 'U'}
+                            {memberName.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-xs font-medium text-gray-900">{loan?.member_name || 'Unknown'}</p>
-                            <p className="text-[8px] text-gray-500">Loan #{loan?.id}</p>
+                            <p className="text-xs font-medium text-gray-900">{memberName}</p>
+                            <p className="text-[8px] text-gray-500">Loan #{loan.loan_id}</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
                           <span className={`px-2 py-0.5 rounded-full text-[8px] font-medium flex items-center space-x-1 ${status.bg} ${status.text}`}>
-                            <StatusIcon className="w-2.5 h-2.5 mr-0.5" />
-                            {status.label}
+                            <StatusIcon className="w-2.5 h-2.5 mr-0.5" />{status.label}
                           </span>
-                          <span className="text-[10px] font-bold text-gray-900">
-                            {formatCurrency(loan?.principal_amount)}
-                          </span>
+                          <button
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              handleViewInstallments(loan); 
+                            }}
+                            className="p-1.5 bg-blue-100 rounded-lg hover:bg-blue-200 transition"
+                            title="View Installments"
+                          >
+                            <FiEye className="w-4 h-4 text-blue-600" />
+                          </button>
                         </div>
                       </div>
-
-                      {/* Loan Details */}
-                      {expandedLoan === loan?.id && (
+                      {expandedLoan === loan.loan_id && (
                         <div className="p-3 bg-white border-t border-green-100">
-                          {/* Progress Bar */}
                           <div className="mb-3">
                             <div className="flex justify-between text-[8px] mb-1">
                               <span className="text-gray-500">Repayment Progress</span>
                               <span className="font-medium">{progress}%</span>
                             </div>
                             <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-gradient-to-r from-green-500 to-green-600"
-                                style={{ width: `${progress}%` }}
-                              />
+                              <div className="h-full bg-gradient-to-r from-green-500 to-green-600" style={{ width: `${progress}%` }} />
                             </div>
                           </div>
-
-                          {/* Loan Stats */}
-                          <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div className="grid grid-cols-3 gap-2">
                             <div className="bg-blue-50 rounded p-2">
                               <p className="text-[7px] text-blue-600">Principal</p>
-                              <p className="text-[9px] font-bold text-gray-900">{formatCurrency(loan?.principal_amount)}</p>
+                              <p className="text-[9px] font-bold text-gray-900">{formatCurrency(principal)}</p>
                             </div>
-                            <div className="bg-purple-50 rounded p-2">
-                              <p className="text-[7px] text-purple-600">Interest</p>
-                              <p className="text-[9px] font-bold text-gray-900">{formatCurrency(loan?.interest_amount || 0)}</p>
-                            </div>
-                            <div className="bg-orange-50 rounded p-2">
-                              <p className="text-[7px] text-orange-600">Total Payable</p>
-                              <p className="text-[9px] font-bold text-gray-900">{formatCurrency(loan?.total_payable || loan?.principal_amount)}</p>
-                            </div>
-                          </div>
-
-                          {/* Paid vs Remaining */}
-                          <div className="grid grid-cols-2 gap-2 mb-3">
                             <div className="bg-green-50 rounded p-2">
                               <p className="text-[7px] text-green-600">Paid</p>
-                              <p className="text-[9px] font-bold text-gray-900">{formatCurrency(loan?.paid_amount || 0)}</p>
+                              <p className="text-[9px] font-bold text-green-600">{formatCurrency(paid)}</p>
                             </div>
                             <div className="bg-orange-50 rounded p-2">
                               <p className="text-[7px] text-orange-600">Remaining</p>
-                              <p className="text-[9px] font-bold text-gray-900">{formatCurrency(loan?.remaining_amount || 0)}</p>
+                              <p className="text-[9px] font-bold text-orange-600">{formatCurrency(remaining)}</p>
                             </div>
                           </div>
-
-                          {/* Installments */}
-                          {loan?.installments && loan.installments.length > 0 && (
-                            <div>
-                              <p className="text-[9px] font-medium text-gray-700 mb-2">Installments</p>
-                              <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                                {loan.installments.map((inst) => (
-                                  <div
-                                    key={inst?.id || Math.random()}
-                                    className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-100"
-                                  >
-                                    <div className="flex items-center space-x-2">
-                                      <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                                        inst?.is_paid ? 'bg-green-100' : 'bg-yellow-100'
-                                      }`}>
-                                        {inst?.is_paid ? (
-                                          <FiCheckCircle className="w-3 h-3 text-green-600" />
-                                        ) : (
-                                          <FiClock className="w-3 h-3 text-yellow-600" />
-                                        )}
-                                      </div>
-                                      <div>
-                                        <p className="text-[8px] text-gray-500">Installment #{inst?.number || inst?.installment_number}</p>
-                                        <p className="text-[9px] font-medium">{formatCurrency(inst?.amount || inst?.emi_amount)}</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                      <p className="text-[8px] text-gray-500">
-                                        Due: {inst?.due_date ? new Date(inst.due_date).toLocaleDateString() : 'N/A'}
-                                      </p>
-                                      {!inst?.is_paid && (
-                                        <button
-                                          onClick={() => onMarkInstallment(inst.id)}
-                                          className="px-2 py-1 bg-green-600 text-white rounded text-[8px] hover:bg-green-700"
-                                        >
-                                          Mark Paid
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       )}
-                    </motion.div>
+                    </div>
                   );
                 })}
               </div>
@@ -397,7 +412,7 @@ const LoansTab = ({
           </div>
         </div>
 
-        {/* Section 3: Closed Loans */}
+        {/* Closed Loans */}
         {closedLoans.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
@@ -412,26 +427,24 @@ const LoansTab = ({
               </div>
             </div>
             <div className="p-3">
-              <div className="space-y-2">
-                {closedLoans.map((loan) => (
-                  <div key={loan?.id || Math.random()} className="border border-gray-200 rounded-lg p-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 text-[8px] font-bold">
-                          {loan?.member_name?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <p className="text-[10px] font-medium text-gray-900">{loan?.member_name}</p>
+              {closedLoans.map((loan) => (
+                <div key={loan.loan_id} className="border border-gray-200 rounded-lg p-2 mb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 bg-gray-200 rounded-lg flex items-center justify-center text-gray-700 text-[8px] font-bold">
+                        {loan.member?.split('@')[0]?.charAt(0).toUpperCase() || 'U'}
                       </div>
-                      <span className="text-[10px] font-bold text-gray-900">{formatCurrency(loan?.principal_amount)}</span>
+                      <p className="text-[10px] font-medium text-gray-900">{loan.member?.split('@')[0] || 'Unknown'}</p>
                     </div>
+                    <span className="text-[10px] font-bold text-gray-900">{formatCurrency(loan.principal)}</span>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Section 4: Rejected Loans */}
+        {/* Rejected Loans */}
         {rejectedLoans.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <div className="bg-red-50 px-3 py-2 border-b border-red-200">
@@ -446,29 +459,24 @@ const LoansTab = ({
               </div>
             </div>
             <div className="p-3">
-              <div className="space-y-2">
-                {rejectedLoans.map((loan) => (
-                  <div key={loan?.id || Math.random()} className="border border-red-200 rounded-lg p-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-red-100 rounded-lg flex items-center justify-center text-red-700 text-[8px] font-bold">
-                          {loan?.member_name?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <p className="text-[10px] font-medium text-gray-900">{loan?.member_name}</p>
+              {rejectedLoans.map((loan) => (
+                <div key={loan.loan_id} className="border border-red-200 rounded-lg p-2 mb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-6 h-6 bg-red-100 rounded-lg flex items-center justify-center text-red-700 text-[8px] font-bold">
+                        {loan.member?.split('@')[0]?.charAt(0).toUpperCase() || 'U'}
                       </div>
-                      <span className="text-[10px] font-bold text-gray-900">{formatCurrency(loan?.principal_amount)}</span>
+                      <p className="text-[10px] font-medium text-gray-900">{loan.member?.split('@')[0] || 'Unknown'}</p>
                     </div>
-                    {loan?.rejection_reason && (
-                      <p className="text-[8px] text-red-600 mt-1">Reason: {loan.rejection_reason}</p>
-                    )}
+                    <span className="text-[10px] font-bold text-gray-900">{formatCurrency(loan.principal)}</span>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Reject Loan Modal */}
+        {/* Reject Modal */}
         <AnimatePresence>
           {showRejectModal && (
             <motion.div
@@ -486,26 +494,18 @@ const LoansTab = ({
                 onClick={(e) => e.stopPropagation()}
               >
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">Reject Loan Request</h3>
-                <p className="text-xs text-gray-600 mb-3">Please provide a reason for rejection:</p>
                 <textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg mb-3"
                   rows="3"
-                  placeholder="Enter reason..."
+                  placeholder="Enter reason for rejection..."
+                  required
                 />
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => setShowRejectModal(false)}
-                    className="flex-1 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg text-xs"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleConfirmReject}
-                    className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-xs"
-                  >
-                    Confirm Reject
+                  <button onClick={() => setShowRejectModal(false)} className="flex-1 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg text-xs">Cancel</button>
+                  <button onClick={handleConfirmReject} disabled={loading || !rejectReason.trim()} className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700 disabled:opacity-50">
+                    {loading ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Confirm Reject'}
                   </button>
                 </div>
               </motion.div>
@@ -517,156 +517,126 @@ const LoansTab = ({
   }
 
   // Member View
+  const displayAvailableFund = memberAvailableFund > 0 ? memberAvailableFund : availableFund;
+
   return (
     <div className="space-y-3">
-      {/* My Loans Summary */}
       <div className="grid grid-cols-2 gap-2">
         <div className="bg-white border border-gray-200 rounded-lg p-3">
           <p className="text-[8px] text-gray-500">My Total Loans</p>
-          <p className="text-sm font-bold text-gray-900">{(myLoans && Array.isArray(myLoans)) ? myLoans.length : 0}</p>
+          <p className="text-sm font-bold text-gray-900">{myLoans.length}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-lg p-3">
           <p className="text-[8px] text-gray-500">Active Loans</p>
-          <p className="text-sm font-bold text-green-600">
-            {(myLoans && Array.isArray(myLoans)) 
-              ? myLoans.filter(l => l?.status === 'ACTIVE' || l?.status === 'APPROVED').length 
-              : 0}
-          </p>
+          <p className="text-sm font-bold text-green-600">{myLoans.filter(l => l?.status === 'ACTIVE' || l?.status === 'APPROVED').length}</p>
         </div>
       </div>
 
-      {/* Available Fund Display for Member */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <FiDollarSign className="w-4 h-4 text-blue-600" />
             <span className="text-xs font-medium text-blue-700">Available Fund to Borrow</span>
           </div>
-          <span className="text-sm font-bold text-blue-800">{formatCurrency(availableFund)}</span>
+          <span className="text-sm font-bold text-blue-800">{formatCurrency(displayAvailableFund)}</span>
         </div>
       </div>
 
-      {/* Request Loan Button */}
       <button
-        onClick={() => setShowLoanModal(true)}
-        disabled={availableFund <= 0}
+        onClick={() => displayAvailableFund > 0 ? setShowLoanModal(true) : toast.error('No funds available')}
+        disabled={displayAvailableFund <= 0}
         className={`w-full px-3 py-2 rounded-lg text-xs flex items-center justify-center space-x-2 ${
-          availableFund > 0
-            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-md'
-            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-        } transition-all`}
+          displayAvailableFund > 0 ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-md' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+        }`}
       >
         <FiCreditCard className="w-4 h-4" />
-        <span>{availableFund > 0 ? 'Request New Loan' : 'No Funds Available'}</span>
+        <span>{displayAvailableFund > 0 ? 'Request New Loan' : 'No Funds Available'}</span>
       </button>
 
-      {/* My Loans List */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
           <h3 className="text-xs font-semibold text-gray-900">My Loan Requests</h3>
         </div>
         <div className="p-3">
-          {!myLoans || myLoans.length === 0 ? (
+          {myLoans.length === 0 ? (
             <div className="text-center py-6">
               <FiCreditCard className="w-8 h-8 text-gray-300 mx-auto mb-2" />
               <p className="text-xs text-gray-500">No loan requests yet</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {myLoans.map((loan) => {
-                const status = loan?.status === 'PENDING' 
-                  ? { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pending' }
-                  : loan?.status === 'APPROVED'
-                  ? { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Approved' }
-                  : loan?.status === 'ACTIVE'
-                  ? { bg: 'bg-green-100', text: 'text-green-700', label: 'Active' }
-                  : loan?.status === 'REJECTED'
-                  ? { bg: 'bg-red-100', text: 'text-red-700', label: 'Rejected' }
-                  : loan?.status === 'CLOSED'
-                  ? { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Closed' }
-                  : { bg: 'bg-gray-100', text: 'text-gray-700', label: loan?.status || 'Unknown' };
+            myLoans.map((loan) => {
+              const status = loan?.status === 'PENDING' ? { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pending' }
+                : loan?.status === 'APPROVED' ? { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Approved' }
+                : loan?.status === 'ACTIVE' ? { bg: 'bg-green-100', text: 'text-green-700', label: 'Active' }
+                : loan?.status === 'REJECTED' ? { bg: 'bg-red-100', text: 'text-red-700', label: 'Rejected' }
+                : { bg: 'bg-gray-100', text: 'text-gray-700', label: loan?.status || 'Unknown' };
 
-                return (
-                  <motion.div
-                    key={loan?.id || Math.random()}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="border border-gray-200 rounded-lg p-3 hover:shadow-sm transition cursor-pointer"
-                    onClick={() => setExpandedLoan(expandedLoan === loan?.id ? null : loan?.id)}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-medium text-gray-900">Loan #{loan?.id}</p>
-                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-medium ${status.bg} ${status.text}`}>
-                        {status.label}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <p className="text-[8px] text-gray-500">Principal</p>
-                        <p className="text-[10px] font-bold text-gray-900">{formatCurrency(loan?.principal_amount)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[8px] text-gray-500">Interest</p>
-                        <p className="text-[10px] font-bold text-gray-900">{formatCurrency(loan?.interest_amount || 0)}</p>
-                      </div>
-                    </div>
+              const principal = parseFloat(loan?.principal_amount || loan?.principal || 0);
+              const paid = parseFloat(loan?.paid_amount || 0);
+              const remaining = principal - paid;
 
-                    {/* Expanded Details for Member */}
-                    {expandedLoan === loan?.id && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        {loan?.status === 'APPROVED' && loan?.total_payable && (
-                          <div className="mb-2 p-2 bg-blue-50 rounded">
-                            <p className="text-[8px] text-blue-600">Total Payable: {formatCurrency(loan.total_payable)}</p>
-                          </div>
-                        )}
-                        {loan?.status === 'ACTIVE' && loan?.installments && (
-                          <div>
-                            <p className="text-[9px] font-medium text-gray-700 mb-2">Installments</p>
-                            <div className="space-y-1.5">
-                              {loan.installments.map((inst) => (
-                                <div key={inst?.id || Math.random()} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                                  <div className="flex items-center space-x-2">
-                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-                                      inst?.is_paid ? 'bg-green-100' : 'bg-yellow-100'
-                                    }`}>
-                                      {inst?.is_paid ? (
-                                        <FiCheckCircle className="w-2.5 h-2.5 text-green-600" />
-                                      ) : (
-                                        <FiClock className="w-2.5 h-2.5 text-yellow-600" />
-                                      )}
-                                    </div>
-                                    <p className="text-[8px] text-gray-600">
-                                      Due: {inst?.due_date ? new Date(inst.due_date).toLocaleDateString() : 'N/A'}
-                                    </p>
-                                  </div>
-                                  <p className="text-[8px] font-medium">{formatCurrency(inst?.amount)}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {loan?.status === 'REJECTED' && loan?.rejection_reason && (
-                          <div className="p-2 bg-red-50 rounded text-[8px] text-red-700">
-                            Reason: {loan.rejection_reason}
-                          </div>
-                        )}
+              return (
+                <div key={loan.id || loan.loan_id} className="border border-gray-200 rounded-lg p-3 mb-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium text-gray-900">Loan #{loan.id || loan.loan_id}</p>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-medium ${status.bg} ${status.text}`}>{status.label}</span>
+                      {(loan?.status === 'ACTIVE' || loan?.status === 'APPROVED') && (
+                        <button 
+                          onClick={() => {
+                            const loanForInstallments = {
+                              loan_id: loan.id || loan.loan_id,
+                              member: loan.member_email || loan.member
+                            };
+                            handleViewInstallments(loanForInstallments);
+                          }} 
+                          className="p-1.5 bg-blue-100 rounded-lg hover:bg-blue-200 transition" 
+                          title="View Installments"
+                        >
+                          <FiEye className="w-4 h-4 text-blue-600" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><p className="text-[8px] text-gray-500">Principal</p><p className="text-[10px] font-bold text-gray-900">{formatCurrency(principal)}</p></div>
+                    <div><p className="text-[8px] text-gray-500">Interest</p><p className="text-[10px] font-bold text-purple-600">{formatCurrency(loan.interest_amount || 0)}</p></div>
+                  </div>
+                  {(loan?.status === 'ACTIVE' || loan?.status === 'APPROVED') && (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <div className="bg-green-50 rounded p-2">
+                        <p className="text-[7px] text-green-600">Paid</p>
+                        <p className="text-[8px] font-bold text-green-600">{formatCurrency(paid)}</p>
                       </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
+                      <div className="bg-orange-50 rounded p-2">
+                        <p className="text-[7px] text-orange-600">Remaining</p>
+                        <p className="text-[8px] font-bold text-orange-600">{formatCurrency(remaining)}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </div>
 
-      {/* Loan Request Modal */}
+      <InstallmentModal
+        isOpen={showInstallmentModal}
+        onClose={() => setShowInstallmentModal(false)}
+        installments={installments}
+        loading={loadingInstallments}
+        onMarkPaid={handleMarkInstallmentPaid}
+        isOwner={role === 'OWNER'}
+        markingPaid={markingPaid}
+      />
+
       <LoanModal
         isOpen={showLoanModal}
         onClose={() => setShowLoanModal(false)}
         onSubmit={onRequestLoan}
         submitting={false}
-        availableFund={availableFund}
+        availableFund={displayAvailableFund}
       />
     </div>
   );

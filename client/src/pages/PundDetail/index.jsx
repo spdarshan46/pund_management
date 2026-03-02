@@ -662,6 +662,7 @@ const PundDetail = () => {
               loans={loans || []}
               myLoans={myLoans || []}
               pundData={pundData}
+              fundSummary={fundSummary}  
               onApproveLoan={handleApproveLoan}
               onMarkInstallment={handleMarkInstallment}
               onRequestLoan={handleRequestLoan}
