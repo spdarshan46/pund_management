@@ -210,6 +210,7 @@ class PundDetailView(APIView):
                 {
                     "email": m.user.email,
                     "name": m.user.name,
+                    "mobile": m.user.mobile,
                     "role": m.role,
                     "membership_active": m.is_active,
                 }

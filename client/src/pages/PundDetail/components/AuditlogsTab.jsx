@@ -1,79 +1,108 @@
 // src/pages/PundDetail/components/AuditLogsTab.jsx
 import React from 'react';
 import { motion } from 'framer-motion';
-import { FiShield, FiClock, FiUser } from 'react-icons/fi';
+import { FiShield, FiClock, FiUser, FiActivity, FiCalendar, FiHash } from 'react-icons/fi';
 
 const AuditLogsTab = ({ auditLogs }) => {
   if (!auditLogs || auditLogs.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-100 text-center">
-        <FiShield className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No Audit Logs Yet</h3>
-        <p className="text-gray-500">Financial actions will be recorded here</p>
+      <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <FiShield className="w-5 h-5 text-gray-400" />
+        </div>
+        <h3 className="text-sm font-medium text-gray-900 mb-1">No Audit Logs Yet</h3>
+        <p className="text-xs text-gray-500">Financial actions will be recorded here</p>
       </div>
     );
   }
 
+  // Calculate stats
+  const totalActions = auditLogs.length;
+  const lastAction = auditLogs[0];
+  const uniqueActions = new Set(auditLogs.map(log => log.action)).size;
+
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Audit Trail</h3>
-      
-      <div className="space-y-4">
+    <div className="space-y-3">
+      {/* Summary Cards - Compact */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-white border border-gray-200 rounded-lg p-2">
+          <div className="flex items-center space-x-1 mb-1">
+            <FiActivity className="w-3 h-3 text-blue-600" />
+            <p className="text-[10px] text-gray-500">Total Actions</p>
+          </div>
+          <p className="text-sm font-bold text-gray-900">{totalActions}</p>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-2">
+          <div className="flex items-center space-x-1 mb-1">
+            <FiCalendar className="w-3 h-3 text-green-600" />
+            <p className="text-[10px] text-gray-500">Last Action</p>
+          </div>
+          <p className="text-xs font-medium text-gray-900 truncate">
+            {lastAction?.action || 'N/A'}
+          </p>
+          <p className="text-[10px] text-gray-400 mt-0.5">
+            {lastAction ? new Date(lastAction.timestamp).toLocaleDateString('en-IN', { 
+              day: '2-digit', 
+              month: '2-digit', 
+              year: '2-digit' 
+            }) : ''}
+          </p>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-2">
+          <div className="flex items-center space-x-1 mb-1">
+            <FiHash className="w-3 h-3 text-purple-600" />
+            <p className="text-[10px] text-gray-500">Unique Actions</p>
+          </div>
+          <p className="text-sm font-bold text-gray-900">{uniqueActions}</p>
+        </div>
+      </div>
+
+      {/* Audit Logs List - Compact */}
+      <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
         {auditLogs.map((log, index) => (
           <motion.div
             key={index}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className="flex items-start space-x-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: index * 0.03 }}
+            className="p-3 hover:bg-gray-50 transition"
           >
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                <FiShield className="w-5 h-5 text-white" />
-              </div>
-            </div>
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-sm font-semibold text-gray-900">{log.action}</p>
-                <span className="text-xs text-gray-500 flex items-center">
-                  <FiClock className="w-3 h-3 mr-1" />
-                  {new Date(log.timestamp).toLocaleString()}
-                </span>
+            <div className="flex items-start space-x-2">
+              {/* Icon */}
+              <div className="flex-shrink-0">
+                <div className="w-6 h-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded flex items-center justify-center">
+                  <FiShield className="w-3 h-3 text-white" />
+                </div>
               </div>
               
-              <p className="text-sm text-gray-600 mb-2">{log.description}</p>
-              
-              <div className="flex items-center text-xs text-gray-500">
-                <FiUser className="w-3 h-3 mr-1" />
-                <span>by {log.performed_by || 'System'}</span>
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <p className="text-xs font-semibold text-gray-900">{log.action}</p>
+                  <span className="text-[10px] text-gray-400 flex items-center">
+                    <FiClock className="w-2.5 h-2.5 mr-0.5" />
+                    {new Date(log.timestamp).toLocaleDateString('en-IN', { 
+                      day: '2-digit', 
+                      month: '2-digit', 
+                      year: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+                
+                <p className="text-[10px] text-gray-600 mb-1">{log.description}</p>
+                
+                <div className="flex items-center text-[10px] text-gray-400">
+                  <FiUser className="w-2.5 h-2.5 mr-0.5" />
+                  <span>by {log.performed_by || 'System'}</span>
+                </div>
               </div>
             </div>
           </motion.div>
         ))}
-      </div>
-
-      {/* Summary Stats */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 bg-blue-50 rounded-lg">
-          <p className="text-xs text-blue-600 mb-1">Total Actions</p>
-          <p className="text-2xl font-bold text-gray-900">{auditLogs.length}</p>
-        </div>
-        <div className="p-4 bg-green-50 rounded-lg">
-          <p className="text-xs text-green-600 mb-1">Last Action</p>
-          <p className="text-sm font-medium text-gray-900">
-            {auditLogs[0]?.action || 'N/A'}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            {auditLogs[0] ? new Date(auditLogs[0].timestamp).toLocaleDateString() : ''}
-          </p>
-        </div>
-        <div className="p-4 bg-purple-50 rounded-lg">
-          <p className="text-xs text-purple-600 mb-1">Unique Actions</p>
-          <p className="text-2xl font-bold text-gray-900">
-            {new Set(auditLogs.map(log => log.action)).size}
-          </p>
-        </div>
       </div>
     </div>
   );

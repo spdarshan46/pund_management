@@ -547,7 +547,6 @@ class FundSummaryView(APIView):
 # ==========================
 #loan view for member
 # ==========================
-# In finance/views.py - Fix MyLoansView
 
 class MyLoansView(APIView):
     permission_classes = [IsAuthenticated]

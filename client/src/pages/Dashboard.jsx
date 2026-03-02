@@ -26,6 +26,7 @@ import MyPunds from './dashboard/MyPunds';
 import MyLoans from './dashboard/MyLoans';
 import Profile from './dashboard/Profile';
 import ChangePassword from './dashboard/ChangePassword';
+import CreatePund from './dashboard/CreatePund'; // Add this import
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -90,6 +91,7 @@ const Dashboard = () => {
     if (location.pathname === '/dashboard/loans') return 'My Loans';
     if (location.pathname === '/dashboard/profile') return 'Profile';
     if (location.pathname === '/dashboard/change-password') return 'Change Password';
+    if (location.pathname === '/dashboard/pund/create') return 'Create Pund';
     return 'Dashboard';
   };
 
@@ -109,16 +111,16 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 lg:flex">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Fixed on desktop */}
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50
-        transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
+        fixed inset-y-0 left-0 z-50
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
         lg:translate-x-0 transition-transform duration-200 ease-in-out
         w-64 bg-white shadow-lg flex flex-col
       `}>
@@ -193,8 +195,8 @@ const Dashboard = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-screen lg:ml-0">
+      {/* Main Content - With left margin on desktop */}
+      <main className="flex-1 flex flex-col min-h-screen lg:ml-64">
         {/* Header with PundX */}
         <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-30">
           <div className="px-3 py-2">
@@ -218,13 +220,15 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Right side - New Pund button */}
-              <Link to="/dashboard/pund/create">
-                <button className="flex items-center space-x-1 px-2 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-xs shadow-sm hover:shadow">
-                  <FiPlus className="w-3 h-3" />
-                  <span className="hidden sm:inline">New</span>
-                </button>
-              </Link>
+              {/* Right side - New Pund button (hidden on create page) */}
+              {location.pathname !== '/dashboard/pund/create' && (
+                <Link to="/dashboard/pund/create">
+                  <button className="flex items-center space-x-1 px-2 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-xs shadow-sm hover:shadow">
+                    <FiPlus className="w-3 h-3" />
+                    <span className="hidden sm:inline">New</span>
+                  </button>
+                </Link>
+              )}
             </div>
 
             {/* Search - Only on Home and Punds pages */}
@@ -262,7 +266,7 @@ const Dashboard = () => {
             <Route path="loans" element={<MyLoans />} />
             <Route path="profile" element={<Profile userName={userName} userEmail={userEmail} />} />
             <Route path="change-password" element={<ChangePassword />} />
-            <Route path="pund/create" element={<div className="text-center py-8 text-sm">Create Pund Page - Coming Soon</div>} />
+            <Route path="pund/create" element={<CreatePund />} />
           </Routes>
         </div>
       </main>
@@ -270,7 +274,7 @@ const Dashboard = () => {
   );
 };
 
-// Home Page Component
+// Home Page Component (keep as is)
 const HomePage = ({ userName, stats, punds, searchTerm, onViewAll, onPundClick }) => {
   const statCards = [
     { label: 'Total Punds', value: stats.totalPunds, icon: FiHome, bg: 'bg-blue-50', color: 'text-blue-600' },

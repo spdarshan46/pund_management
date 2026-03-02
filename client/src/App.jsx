@@ -8,8 +8,6 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import PundDetail from './pages/PundDetail/index';
-import CreatePund from './pages/CreatePund';
-import AddMember from './pages/AddMember';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -55,16 +53,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* Protected Routes */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        {/* Nested Dashboard Routes */}
+        {/* Protected Dashboard Routes - All dashboard sub-routes are handled inside Dashboard component */}
         <Route
           path="/dashboard/*"
           element={
@@ -73,6 +62,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+
         {/* Pund Detail Route - Protected */}
         <Route
           path="/pund/:id"
@@ -83,24 +73,7 @@ function App() {
           }
         />
 
-        {/* Create Pund Route - Protected */}
-        <Route
-          path="/pund/create"
-          element={
-            <ProtectedRoute>
-              <CreatePund />
-            </ProtectedRoute>
-          }
-        />
-        {/* Add Member Route - Protected */}
-        <Route
-          path="/pund/:pundId/add-member"
-          element={
-            <ProtectedRoute>
-              <AddMember />
-            </ProtectedRoute>
-          }
-        />
+
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
