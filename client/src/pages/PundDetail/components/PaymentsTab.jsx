@@ -8,9 +8,7 @@ import {
   FiFilter,
   FiSearch,
   FiFileText,
-  FiDownload,
-  FiRefreshCw,
-  FiPlusCircle
+  FiDownload
 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import api from '../../../services/api';
@@ -36,7 +34,7 @@ const formatDateDDMMYY = (dateString) => {
   return `${day}-${month}-${year}`;
 };
 
-const PaymentsTab = ({ pundId, pundData, onGenerateCycle, generatingCycle }) => {
+const PaymentsTab = ({ pundId, pundData }) => {
   const [payments, setPayments] = useState([]);
   const [cycleData, setCycleData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -609,19 +607,6 @@ const PaymentsTab = ({ pundId, pundData, onGenerateCycle, generatingCycle }) => 
                 className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20 w-48"
               />
             </div>
-
-            <button
-              onClick={onGenerateCycle}
-              disabled={generatingCycle}
-              className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 disabled:opacity-50"
-            >
-              {generatingCycle ? (
-                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <FiPlusCircle className="w-3.5 h-3.5" />
-              )}
-              <span>New Cycle</span>
-            </button>
           </div>
 
           <button

@@ -15,7 +15,8 @@ from .serializers import (
     LoginSerializer,
     ResetPasswordSerializer,
     ChangePasswordSerializer,
-)
+    UserSerializer,
+    )
 from .services import send_otp_email
 
 
@@ -266,6 +267,10 @@ class ChangePasswordView(APIView):
 # -----------------------------
 class EditProfileView(APIView):
     permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        serializer = UserSerializer(request.user)
+        return Response(serializer.data)
 
     def patch(self, request):
         user = request.user

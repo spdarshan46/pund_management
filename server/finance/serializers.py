@@ -3,6 +3,7 @@ from .models import PundStructure, Payment
 
 
 class PundStructureSerializer(serializers.ModelSerializer):
+    effective_from = serializers.DateField(required=False)
     class Meta:
         model = PundStructure
         fields = [

@@ -8,7 +8,8 @@ from django.db import models
 from punds.models import Pund, Membership
 from .serializers import PundStructureSerializer, LoanRequestSerializer, LoanApproveSerializer
 from .models import FinanceAuditLog, Payment, PundStructure, Loan, LoanInstallment
-
+from django.db import transaction
+from rest_framework import status
 
 # ==========================
 # SET STRUCTURE (Versioned)
@@ -22,7 +23,6 @@ class SetStructureView(APIView):
         if not pund:
             return Response({"error": "Pund not found or inactive"}, status=404)
 
-        # Only OWNER
         is_owner = Membership.objects.filter(
             user=request.user,
             pund=pund,
@@ -38,25 +38,15 @@ class SetStructureView(APIView):
             return Response(serializer.errors, status=400)
 
         today = timezone.now().date()
-        next_effective_date = today + timedelta(days=7)
 
-        # Check if future structure already exists
-        existing_future = PundStructure.objects.filter(
-            pund=pund,
-            effective_from=next_effective_date
-        ).first()
+        effective_from = serializer.validated_data.get("effective_from")
 
-        if existing_future:
-            existing_future.saving_amount = serializer.validated_data["saving_amount"]
-            existing_future.loan_interest_percentage = serializer.validated_data["loan_interest_percentage"]
-            existing_future.missed_saving_penalty = serializer.validated_data["missed_saving_penalty"]
-            existing_future.missed_loan_penalty = serializer.validated_data["missed_loan_penalty"]
-            existing_future.default_loan_cycles = serializer.validated_data["default_loan_cycles"]
-            existing_future.save()
+        # If not provided → auto 7 days
+        if effective_from is None:
+            effective_from = today + timedelta(days=7)
 
-            return Response({"message": "Future structure updated successfully"})
+        # NO past date restriction
 
-        # Create new structure version
         PundStructure.objects.create(
             pund=pund,
             saving_amount=serializer.validated_data["saving_amount"],
@@ -64,27 +54,30 @@ class SetStructureView(APIView):
             missed_saving_penalty=serializer.validated_data["missed_saving_penalty"],
             missed_loan_penalty=serializer.validated_data["missed_loan_penalty"],
             default_loan_cycles=serializer.validated_data["default_loan_cycles"],
-            effective_from=next_effective_date,
+            effective_from=effective_from,
         )
 
-        return Response({"message": "Structure created successfully"})
-
-
+        return Response({"message": "Structure saved successfully"})
+    
 # ==========================
 #  GENERATE CYCLE
 # ==========================
+
 class GenerateCycleView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, pund_id):
 
+        # 1️⃣ Get Pund
         pund = Pund.objects.filter(id=pund_id, is_active=True).first()
         if not pund:
-            return Response({"error": "Pund not found or inactive"}, status=404)
-        if not pund.is_active:
-            return Response({"error": "Pund is closed"}, status=400)
+            return Response(
+                {"error": "Pund not found or inactive"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-        # Only OWNER
+        # 2️⃣ Owner Check
         is_owner = Membership.objects.filter(
             user=request.user,
             pund=pund,
@@ -93,29 +86,40 @@ class GenerateCycleView(APIView):
         ).exists()
 
         if not is_owner:
-            return Response({"error": "Only owner can generate cycle"}, status=403)
+            return Response(
+                {"error": "Only owner can generate cycle"},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-        # Get last cycle
-        last_payment = Payment.objects.filter(pund=pund).order_by("-cycle_number").first()
-
-        next_cycle = 1 if not last_payment else last_payment.cycle_number + 1
-
-        # Prevent duplicate cycle
-        if Payment.objects.filter(pund=pund, cycle_number=next_cycle).exists():
-            return Response({"error": "Cycle already generated"}, status=400)
-
-        today = timezone.now().date()
-
-        # Get correct structure for today
+        # 3️⃣ Get Latest Structure
         structure = PundStructure.objects.filter(
-            pund=pund,
-            effective_from__lte=today
+            pund=pund
         ).order_by("-effective_from").first()
 
         if not structure:
-            return Response({"error": "Structure not set"}, status=400)
+            return Response(
+                {"error": "Structure not set"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Apply saving penalty to previous cycle unpaid
+        # 4️⃣ Get Last Cycle
+        last_payment = Payment.objects.filter(
+            pund=pund
+        ).order_by("-cycle_number").first()
+
+        next_cycle = 1 if not last_payment else last_payment.cycle_number + 1
+
+        # Prevent duplicate
+        if Payment.objects.filter(
+            pund=pund,
+            cycle_number=next_cycle
+        ).exists():
+            return Response(
+                {"error": "Cycle already generated"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 5️⃣ Apply penalty to previous cycle unpaid
         if last_payment:
             unpaid_payments = Payment.objects.filter(
                 pund=pund,
@@ -123,44 +127,59 @@ class GenerateCycleView(APIView):
                 is_paid=False
             )
 
-            for p in unpaid_payments:
-                if p.penalty_amount == 0:
-                    p.penalty_amount = structure.missed_saving_penalty
-                    p.save()
+            for payment in unpaid_payments:
+                if payment.penalty_amount == 0:
+                    payment.penalty_amount = structure.missed_saving_penalty
+                    payment.save()
 
-        # Determine cycle length
+        # 6️⃣ Calculate Due Date Based On Structure Effective Date
+
+        base_date = structure.effective_from
+
         if pund.pund_type == "WEEKLY":
-            delta = 7
-        elif pund.pund_type == "MONTHLY":
-            delta = 30
+            due_date = base_date + timedelta(weeks=next_cycle)
+
         elif pund.pund_type == "DAILY":
-            delta = 1
+            due_date = base_date + timedelta(days=next_cycle)
+
+        elif pund.pund_type == "MONTHLY":
+            due_date = base_date + relativedelta(months=next_cycle)
+
         else:
-            delta = 7
+            # Default weekly
+            due_date = base_date + timedelta(weeks=next_cycle)
 
-        due_date = today + timedelta(days=delta)
-
-        # Create payments
+        # 7️⃣ Get Active Members
         members = Membership.objects.filter(
             pund=pund,
             role="MEMBER",
             is_active=True
         )
 
+        if not members.exists():
+            return Response(
+                {"error": "No active members in this pund"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 8️⃣ Create Payments For Each Member
         for member in members:
             Payment.objects.create(
                 pund=pund,
                 member=member.user,
                 cycle_number=next_cycle,
                 amount=structure.saving_amount,
-                due_date=due_date
+                due_date=due_date,
+                penalty_amount=0,
+                is_paid=False
             )
 
         return Response({
-            "message": f"Cycle {next_cycle} generated successfully"
-        })
-
-
+            "message": f"Cycle {next_cycle} generated successfully",
+            "cycle_number": next_cycle,
+            "due_date": due_date
+        }, status=status.HTTP_201_CREATED)
+    
 # ==========================
 #  MARK PAYMENT PAID
 # ==========================

@@ -10,12 +10,12 @@ const formatCurrency = (amount) => {
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
+  // Parse YYYY-MM-DD format directly
+  const [year, month, day] = dateString.split('-');
+  if (year && month && day) {
+    return `${day}/${month}/${year}`;
+  }
+  return dateString;
 };
 
 // Get today's date in YYYY-MM-DD format for min attribute
@@ -24,6 +24,17 @@ const getTodayDate = () => {
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, '0');
   const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Get date 7 days from now in YYYY-MM-DD format
+const getNextWeekDate = () => {
+  const today = new Date();
+  const nextWeek = new Date(today);
+  nextWeek.setDate(today.getDate() + 7);
+  const year = nextWeek.getFullYear();
+  const month = String(nextWeek.getMonth() + 1).padStart(2, '0');
+  const day = String(nextWeek.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
@@ -65,13 +76,21 @@ const StructureTab = ({ pundData, onSubmit }) => {
     }
 
     // Prepare payload
-    const payload = { ...structureData };
+    const payload = {
+      saving_amount: parseFloat(structureData.saving_amount),
+      loan_interest_percentage: parseFloat(structureData.loan_interest_percentage),
+      missed_saving_penalty: parseFloat(structureData.missed_saving_penalty),
+      missed_loan_penalty: parseFloat(structureData.missed_loan_penalty),
+      default_loan_cycles: parseInt(structureData.default_loan_cycles)
+    };
     
-    // If auto is selected, remove effective_from (backend will set to 7 days)
-    if (effectiveOption === 'auto') {
-      delete payload.effective_from;
+    // Add effective_from only for manual mode
+    if (effectiveOption === 'manual' && structureData.effective_from) {
+      payload.effective_from = structureData.effective_from;
     }
+    // For auto mode, don't send effective_from (backend will set to 7 days)
 
+    console.log('Submitting payload:', payload);
     setSubmitting(true);
     await onSubmit(payload);
     setSubmitting(false);
@@ -82,14 +101,6 @@ const StructureTab = ({ pundData, onSubmit }) => {
       ...structureData,
       [e.target.name]: e.target.value
     });
-  };
-
-  // Calculate next effective date (7 days from now)
-  const getNextEffectiveDate = () => {
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
-    return nextWeek;
   };
 
   const hasCurrentStructure = pundData?.structure;
@@ -166,11 +177,14 @@ const StructureTab = ({ pundData, onSubmit }) => {
                 <input
                   type="radio"
                   checked={effectiveOption === 'auto'}
-                  onChange={() => setEffectiveOption('auto')}
+                  onChange={() => {
+                    setEffectiveOption('auto');
+                    setStructureData({...structureData, effective_from: ''});
+                  }}
                   className="w-3.5 h-3.5 text-blue-600"
                 />
                 <span className="text-xs text-gray-700">Auto (7 days from now)</span>
-                <span className="text-[10px] text-gray-500 ml-2">{formatDate(getNextEffectiveDate())}</span>
+                <span className="text-[10px] text-gray-500 ml-2">{formatDate(getNextWeekDate())}</span>
               </label>
               
               <label className="flex items-center space-x-2">
@@ -305,7 +319,7 @@ const StructureTab = ({ pundData, onSubmit }) => {
                 <p className="text-[9px] text-yellow-700">
                   <span className="font-medium">Note:</span> New structure will be effective from{' '}
                   {effectiveOption === 'auto' 
-                    ? <span className="font-semibold">{formatDate(getNextEffectiveDate())}</span>
+                    ? <span className="font-semibold">{formatDate(getNextWeekDate())}</span>
                     : 'the selected date'
                   }.
                 </p>

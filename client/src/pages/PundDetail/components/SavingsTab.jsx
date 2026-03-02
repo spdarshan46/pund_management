@@ -10,7 +10,8 @@ import {
   FiXCircle,
   FiUser,
   FiGrid,
-  FiList
+  FiList,
+  FiPlusCircle
 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import api from '../../../services/api';
@@ -25,11 +26,11 @@ const parseAmount = (value) => {
   return parseFloat(value) || 0;
 };
 
-const SavingsTab = ({ role, savingSummary, myFinancials, pundId }) => {
+const SavingsTab = ({ role, savingSummary, myFinancials, pundId, onGenerateCycle, generatingCycle }) => {
   const [cycles, setCycles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedCycle, setExpandedCycle] = useState(null);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('grid');
 
   useEffect(() => {
     if (role === 'OWNER' && pundId) {
@@ -99,35 +100,51 @@ const SavingsTab = ({ role, savingSummary, myFinancials, pundId }) => {
           </div>
         </div>
 
-        {/* Cycles Section with View Toggle */}
+        {/* Cycles Section with View Toggle and Generate Button */}
         <div className="bg-white border border-gray-200 rounded-lg p-3">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
             <h3 className="text-sm font-semibold text-gray-900">Cycle Details</h3>
             
-            {/* View Toggle */}
-            <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-0.5">
+            <div className="flex items-center space-x-2">
+              {/* Generate Cycle Button */}
               <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md transition ${
-                  viewMode === 'grid' 
-                    ? 'bg-white text-blue-600 shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-                title="Grid View"
+                onClick={onGenerateCycle}
+                disabled={generatingCycle}
+                className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 disabled:opacity-50"
               >
-                <FiGrid className="w-3.5 h-3.5" />
+                {generatingCycle ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <FiPlusCircle className="w-3.5 h-3.5" />
+                )}
+                <span>New Cycle</span>
               </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md transition ${
-                  viewMode === 'list' 
-                    ? 'bg-white text-blue-600 shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-                title="List View"
-              >
-                <FiList className="w-3.5 h-3.5" />
-              </button>
+
+              {/* View Toggle */}
+              <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-0.5">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-md transition ${
+                    viewMode === 'grid' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  title="Grid View"
+                >
+                  <FiGrid className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 rounded-md transition ${
+                    viewMode === 'list' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  title="List View"
+                >
+                  <FiList className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -140,8 +157,17 @@ const SavingsTab = ({ role, savingSummary, myFinancials, pundId }) => {
             <div className="text-center py-8 bg-gray-50 rounded-lg">
               <FiPieChart className="w-8 h-8 text-gray-300 mx-auto mb-2" />
               <p className="text-xs text-gray-500 mb-2">No cycles generated yet</p>
-              <button className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700">
-                Generate First Cycle
+              <button
+                onClick={onGenerateCycle}
+                disabled={generatingCycle}
+                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 disabled:opacity-50 flex items-center space-x-1 mx-auto"
+              >
+                {generatingCycle ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <FiPlusCircle className="w-3.5 h-3.5" />
+                )}
+                <span>Generate First Cycle</span>
               </button>
             </div>
           ) : viewMode === 'grid' ? (
