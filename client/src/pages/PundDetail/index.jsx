@@ -154,16 +154,16 @@ const PundDetail = () => {
       toast.error('Failed to request loan');
     }
   };
-  
-const handleRejectLoan = async (loanId, reason) => {
-  try {
-    // The API call is already made in LoansTab, so we just need to refresh
-    await handleRefetch();
-    toast.success('Loan rejected and data refreshed');
-  } catch (error) {
-    console.error('Error refreshing after rejection:', error);
-  }
-};
+
+  const handleRejectLoan = async (loanId, reason) => {
+    try {
+      // The API call is already made in LoansTab, so we just need to refresh
+      await handleRefetch();
+      toast.success('Loan rejected and data refreshed');
+    } catch (error) {
+      console.error('Error refreshing after rejection:', error);
+    }
+  };
 
   const handleApproveLoan = async (loanId, cycles) => {
     setApprovingLoan(true);
@@ -333,6 +333,12 @@ const handleRejectLoan = async (loanId, reason) => {
       doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
 
       yPos += 8;
+      const expected = parseFloat(savingSummary?.total_expected_savings || 0);
+      const totalPaid = parseFloat(savingSummary?.total_paid_savings || 0);
+      const penalties = parseFloat(savingSummary?.total_penalties_collected || 0);
+
+      const actualSavingsPaid = totalPaid - penalties;
+      const pendingDues = Math.max(0, expected - actualSavingsPaid);
 
       const summaryItems = [
         { label: 'Total Cycles:', value: savingSummary?.total_cycles?.toString() || '0' },
@@ -340,8 +346,7 @@ const handleRejectLoan = async (loanId, reason) => {
         { label: 'Total Expected:', value: formatCurrency(savingSummary?.total_expected_savings || 0) },
         { label: 'Total Collected:', value: formatCurrency(savingSummary?.total_paid_savings || 0) },
         { label: 'Total Penalties:', value: formatCurrency(savingSummary?.total_penalties_collected || 0) },
-        { label: 'Pending Dues:', value: formatCurrency((savingSummary?.total_expected_savings || 0) - (savingSummary?.total_paid_savings || 0)) }
-      ];
+        { label: 'Pending Dues:', value: formatCurrency(pendingDues) }];
 
       summaryItems.forEach((item, index) => {
         const col = index < 3 ? 14 : pageWidth / 2 + 5;
@@ -397,9 +402,9 @@ const handleRejectLoan = async (loanId, reason) => {
         doc.text('LOANS SUMMARY', 14, yPos);
 
         const loanTableData = loans.slice(0, 10).map(loan => [
-          `#${loan.id}`,
-          loan.member_name || 'N/A',
-          formatCurrency(loan.principal_amount),
+          `#${loan.loan_id || loan.id || 'N/A'}`,
+          loan.member || loan.member_email || 'N/A',
+          formatCurrency(loan.principal || loan.principal_amount || 0),
           loan.status || 'PENDING'
         ]);
 
@@ -627,7 +632,7 @@ const handleRejectLoan = async (loanId, reason) => {
                     <FiFileText className="w-4 h-4" />
                   </button>
                 )}
-              
+
               </div>
             </div>
           </div>
@@ -664,7 +669,7 @@ const handleRejectLoan = async (loanId, reason) => {
               loans={loans || []}
               myLoans={myLoans || []}
               pundData={pundData}
-              fundSummary={fundSummary}  
+              fundSummary={fundSummary}
               onApproveLoan={handleApproveLoan}
               onMarkInstallment={handleMarkInstallment}
               onRequestLoan={handleRequestLoan}
