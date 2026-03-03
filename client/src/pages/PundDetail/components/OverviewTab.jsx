@@ -33,7 +33,7 @@ const OverviewTab = ({ pundData, role, fundSummary: propFundSummary, savingSumma
 
   const fetchSummaries = async () => {
     if (!pundData?.pund_id) return;
-    
+
     setLoading(true);
     try {
       // Try to fetch fund summary
@@ -64,7 +64,7 @@ const OverviewTab = ({ pundData, role, fundSummary: propFundSummary, savingSumma
     try {
       const response = await api.get(`/finance/pund/${pundData.pund_id}/cycle-payments/`);
       const cycles = response.data;
-      
+
       let totalCollected = 0;
       let totalPenalties = 0;
       let totalExpected = 0;
@@ -74,11 +74,11 @@ const OverviewTab = ({ pundData, role, fundSummary: propFundSummary, savingSumma
 
       cycles.forEach(cycle => {
         uniqueCycles.add(cycle.cycle_number);
-        
+
         cycle.payments?.forEach(payment => {
           uniqueMembers.add(payment.member_id);
           totalExpected += parseAmount(payment.amount);
-          
+
           if (payment.is_paid) {
             totalCollected += parseAmount(payment.amount) + parseAmount(payment.penalty_amount);
             totalPaid += parseAmount(payment.amount) + parseAmount(payment.penalty_amount);
@@ -93,7 +93,7 @@ const OverviewTab = ({ pundData, role, fundSummary: propFundSummary, savingSumma
       try {
         const loansResponse = await api.get(`/finance/pund/${pundData.pund_id}/loans/`);
         const loans = loansResponse.data || [];
-        
+
         loans.forEach(loan => {
           if (loan.is_active || loan.status === 'ACTIVE' || loan.status === 'APPROVED') {
             activeLoanPrincipal += parseAmount(loan.principal_amount);
@@ -150,7 +150,7 @@ const OverviewTab = ({ pundData, role, fundSummary: propFundSummary, savingSumma
             <FiInfo className="w-4 h-4 text-blue-600" />
             <h3 className="text-sm font-semibold text-gray-900">Current Structure</h3>
           </div>
-          
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-gray-50 rounded-lg p-2">
               <p className="text-[10px] text-gray-500">Saving Amount</p>
@@ -177,7 +177,7 @@ const OverviewTab = ({ pundData, role, fundSummary: propFundSummary, savingSumma
               </p>
             </div>
           </div>
-          
+
           {pundData.structure.effective_from && (
             <div className="mt-3 pt-2 border-t border-gray-100 text-[10px] text-gray-500">
               <span className="font-medium">Effective from:</span>{' '}
@@ -203,24 +203,27 @@ const OverviewTab = ({ pundData, role, fundSummary: propFundSummary, savingSumma
             <p className="text-base font-bold">{formatCurrency(fundSummary.total_collected)}</p>
             {savingSummary && (
               <p className="text-[8px] text-blue-200 mt-1">
-                Savings: {formatCurrency((parseAmount(fundSummary.total_collected) - parseAmount(savingSummary.total_penalties_collected)))} | 
+                Savings: {formatCurrency((parseAmount(fundSummary.total_collected) - parseAmount(savingSummary.total_penalties_collected)))} |
                 Penalties: {formatCurrency(savingSummary.total_penalties_collected)}
               </p>
             )}
           </div>
-          
+
+
           <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg p-3 text-white">
             <div className="flex items-center space-x-1 mb-1">
               <FiTrendingUp className="w-3.5 h-3.5 text-purple-100" />
               <p className="text-[10px] text-purple-100">Active Loans</p>
             </div>
             <p className="text-base font-bold">{formatCurrency(fundSummary.active_loan_outstanding)}</p>
+
             <p className="text-[8px] text-purple-200 mt-1">
-              Principal: {formatCurrency(fundSummary.active_loan_principal)} | 
-              Interest: {formatCurrency(parseAmount(fundSummary.active_loan_outstanding) - parseAmount(fundSummary.active_loan_principal))}
+              Principal: {formatCurrency(fundSummary?.active_loan_principal || 0)} |
+              Interest: {formatCurrency(fundSummary?.active_loan_interest || 0)}
             </p>
           </div>
-          
+
+
           <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg p-3 text-white">
             <div className="flex items-center space-x-1 mb-1">
               <FiClock className="w-3.5 h-3.5 text-green-100" />
@@ -228,8 +231,13 @@ const OverviewTab = ({ pundData, role, fundSummary: propFundSummary, savingSumma
             </div>
             <p className="text-base font-bold">{formatCurrency(fundSummary.available_fund)}</p>
             <p className="text-[8px] text-green-200 mt-1">
-              = Collected - Loan Principal
+              = Collected - Outstanding Loans
             </p>
+            {/* Add a small breakdown */}
+            <div className="mt-1 text-[7px] text-green-200 opacity-75">
+              Collected: {formatCurrency(fundSummary.total_collected)} -
+              Outstanding: {formatCurrency(fundSummary.active_loan_outstanding)}
+            </div>
           </div>
         </motion.div>
       )}
@@ -243,7 +251,7 @@ const OverviewTab = ({ pundData, role, fundSummary: propFundSummary, savingSumma
           className="bg-white border border-gray-200 rounded-lg p-4"
         >
           <h3 className="text-sm font-semibold text-gray-900 mb-3">Saving Summary</h3>
-          
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
             <div className="bg-gray-50 rounded-lg p-2">
               <p className="text-[8px] text-gray-500">Cycles</p>
@@ -355,11 +363,10 @@ const OverviewTab = ({ pundData, role, fundSummary: propFundSummary, savingSumma
                 </div>
                 <div className="bg-gray-50 rounded-lg p-2">
                   <p className="text-[8px] text-gray-500">Status</p>
-                  <span className={`text-[8px] px-1.5 py-0.5 rounded-full inline-block ${
-                    myFinancials.loan_summary.status === 'APPROVED' || myFinancials.loan_summary.status === 'ACTIVE'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}>
+                  <span className={`text-[8px] px-1.5 py-0.5 rounded-full inline-block ${myFinancials.loan_summary.status === 'APPROVED' || myFinancials.loan_summary.status === 'ACTIVE'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-yellow-100 text-yellow-700'
+                    }`}>
                     {myFinancials.loan_summary.status || 'PENDING'}
                   </span>
                 </div>

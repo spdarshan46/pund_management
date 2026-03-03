@@ -154,6 +154,16 @@ const PundDetail = () => {
       toast.error('Failed to request loan');
     }
   };
+  
+const handleRejectLoan = async (loanId, reason) => {
+  try {
+    // The API call is already made in LoansTab, so we just need to refresh
+    await handleRefetch();
+    toast.success('Loan rejected and data refreshed');
+  } catch (error) {
+    console.error('Error refreshing after rejection:', error);
+  }
+};
 
   const handleApproveLoan = async (loanId, cycles) => {
     setApprovingLoan(true);
@@ -617,15 +627,7 @@ const PundDetail = () => {
                     <FiFileText className="w-4 h-4" />
                   </button>
                 )}
-                {role === 'MEMBER' && pundData.pund_active && (
-                  <button
-                    onClick={() => setActiveTab('loans')}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-xs hover:shadow-md transition-all"
-                  >
-                    <FiPlus className="w-3.5 h-3.5" />
-                    <span>Request Loan</span>
-                  </button>
-                )}
+              
               </div>
             </div>
           </div>
@@ -666,7 +668,9 @@ const PundDetail = () => {
               onApproveLoan={handleApproveLoan}
               onMarkInstallment={handleMarkInstallment}
               onRequestLoan={handleRequestLoan}
+              onRejectLoan={handleRejectLoan}
               approvingLoan={approvingLoan}
+              onRefresh={handleRefetch}
             />
           )}
 

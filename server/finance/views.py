@@ -496,15 +496,16 @@ def apply_loan_penalty(loan):
 class MarkLoanInstallmentPaidView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, installment_id):
-
         installment = LoanInstallment.objects.filter(id=installment_id).first()
         if not installment:
             return Response({"error": "Installment not found"}, status=404)
-        if not installment.loan.pund.is_active:
-            return Response({"error": "Pund is closed"}, status=400)
-
+        
         loan = installment.loan
+        
+        if not loan.pund.is_active:
+            return Response({"error": "Pund is closed"}, status=400)
 
         # Only OWNER can mark paid
         is_owner = Membership.objects.filter(
@@ -523,33 +524,57 @@ class MarkLoanInstallmentPaidView(APIView):
         # Apply penalty first if overdue
         apply_loan_penalty(loan)
 
+        # Get the updated installment (penalty might have been added)
+        installment.refresh_from_db()
+        
         total_amount = installment.emi_amount + installment.penalty_amount
 
         installment.is_paid = True
         installment.paid_at = timezone.now()
         installment.save()
+
+        Payment.objects.create(
+            pund=loan.pund,
+            member=loan.member,   
+            cycle_number=installment.cycle_number,
+            amount=installment.emi_amount,
+            penalty_amount=installment.penalty_amount,
+            is_paid=True,
+            paid_at=timezone.now(),
+            due_date=installment.due_date
+        )
+      
         FinanceAuditLog.objects.create(
             pund=loan.pund,
             user=request.user,
             action="EMI Paid",
-            description=f"Installment {installment.id} marked paid" 
-            )
+            description=f"Installment {installment.id} marked paid. Amount: {total_amount}"
+        )
 
-        # Reduce remaining amount
+        # Reduce remaining amount by EMI only
+        old_remaining = loan.remaining_amount
         loan.remaining_amount -= installment.emi_amount
-        if loan.remaining_amount <= 0:
+        
+        # Ensure no negative
+        if loan.remaining_amount < 0:
             loan.remaining_amount = 0
+            
+        if loan.remaining_amount <= 0:
             loan.status = "CLOSED"
             loan.is_active = False
 
         loan.save()
+        
+        # Log the update
+        print(f"Loan {loan.id}: Remaining reduced from {old_remaining} to {loan.remaining_amount}")
 
         return Response({
             "message": "EMI marked as paid",
             "paid_amount": str(total_amount),
-            "remaining_amount": str(loan.remaining_amount)
+            "remaining_amount": str(loan.remaining_amount),
+            "loan_status": loan.status
         })
-
+    
 # ==========================
 #loan details view 
 # ==========================
@@ -612,7 +637,6 @@ class FundSummaryView(APIView):
         if not pund:
             return Response({"error": "Pund not found"}, status=404)
 
-        # Check if user is a member of this pund
         is_member = Membership.objects.filter(
             user=request.user,
             pund=pund,
@@ -622,7 +646,7 @@ class FundSummaryView(APIView):
         if not is_member:
             return Response({"error": "Not authorized"}, status=403)
 
-        # GROUP TOTAL - Include penalties
+        # -------- TOTAL COLLECTED --------
         total_collected_data = Payment.objects.filter(
             pund=pund,
             is_paid=True
@@ -630,31 +654,47 @@ class FundSummaryView(APIView):
             total_amount=models.Sum("amount"),
             total_penalty=models.Sum("penalty_amount")
         )
-        
-        total_collected = (total_collected_data["total_amount"] or Decimal("0")) + \
-                          (total_collected_data["total_penalty"] or Decimal("0"))
 
-        # For available fund calculation, use principal_amount
-        total_active_loans_principal = Loan.objects.filter(
+        total_savings = total_collected_data["total_amount"] or Decimal("0")
+        total_penalties = total_collected_data["total_penalty"] or Decimal("0")
+        total_collected = total_savings + total_penalties
+
+        # -------- ACTIVE LOANS --------
+        active_loans = Loan.objects.filter(
             pund=pund,
             is_active=True
-        ).aggregate(total=models.Sum("principal_amount"))["total"] or Decimal("0")
+        )
 
-        # For display, show the total with interest
-        total_active_loans_with_interest = Loan.objects.filter(
-            pund=pund,
-            is_active=True
-        ).aggregate(total=models.Sum("remaining_amount"))["total"] or Decimal("0")
+        total_outstanding = active_loans.aggregate(
+            total=models.Sum("remaining_amount")
+        )["total"] or Decimal("0")
 
-        available = total_collected - total_active_loans_principal
+        total_principal = active_loans.aggregate(
+            total=models.Sum("principal_amount")
+        )["total"] or Decimal("0")
+
+        total_payable = active_loans.aggregate(
+            total=models.Sum("total_payable")
+        )["total"] or Decimal("0")
+
+        # ✅ Correct Interest Calculation
+        total_interest = total_payable - total_principal
+
+        # -------- AVAILABLE FUND --------
+        available = total_collected - total_outstanding
 
         return Response({
             "total_collected": str(total_collected),
-            "active_loan_outstanding": str(total_active_loans_with_interest),
-            "active_loan_principal": str(total_active_loans_principal),
-            "available_fund": str(available)
+            "total_savings": str(total_savings),
+            "total_penalties": str(total_penalties),
+
+            "active_loan_outstanding": str(total_outstanding),
+            "active_loan_principal": str(total_principal),
+            "active_loan_interest": str(total_interest),
+
+            "available_fund": str(available),
         })
-    
+
 # ==========================
 #loan view for member
 # ==========================
@@ -670,20 +710,26 @@ class MyLoansView(APIView):
             # Get all installments for this loan
             installments = LoanInstallment.objects.filter(loan=loan)
             
-            # Calculate total paid (EMI + penalties)
-            total_paid_data = installments.filter(is_paid=True).aggregate(
-                total_emi=models.Sum("emi_amount"),
+            # Calculate total EMI paid (this reduces the loan balance)
+            total_emi_paid_data = installments.filter(is_paid=True).aggregate(
+                total_emi=models.Sum("emi_amount")
+            )
+            total_emi_paid = total_emi_paid_data["total_emi"] or Decimal("0")
+            
+            # Calculate total penalties paid (for display only - doesn't reduce loan balance)
+            total_penalty_paid_data = installments.filter(is_paid=True).aggregate(
                 total_penalty=models.Sum("penalty_amount")
             )
+            total_penalty_paid = total_penalty_paid_data["total_penalty"] or Decimal("0")
             
-            total_paid = (total_paid_data["total_emi"] or Decimal("0")) + \
-                         (total_paid_data["total_penalty"] or Decimal("0"))
+            # Total amount paid (EMI + penalties) - for display
+            total_paid = total_emi_paid + total_penalty_paid
             
-            # Calculate remaining amount accurately
-            remaining = loan.total_payable - total_paid
+            # ✅ CORRECT: Remaining amount = total_payable - EMI paid only
+            remaining = loan.total_payable - total_emi_paid
             
-            # Calculate progress percentage
-            progress = float((total_paid / loan.total_payable) * 100) if loan.total_payable > 0 else 0
+            # ✅ CORRECT: Progress based on EMI paid vs total payable
+            progress = float((total_emi_paid / loan.total_payable) * 100) if loan.total_payable > 0 else 0
             
             # Count paid installments
             paid_installments = installments.filter(is_paid=True).count()
@@ -693,18 +739,20 @@ class MyLoansView(APIView):
                 "loan_id": loan.id,
                 "pund": loan.pund.name,
                 "principal": str(loan.principal_amount),
-                "remaining": str(remaining),  # Use calculated remaining
+                "remaining": str(remaining),  # Now correct: 7 * 550 = 3850
                 "total_payable": str(loan.total_payable),
                 "status": loan.status,
                 "is_active": loan.is_active,
-                "paid_amount": str(total_paid),
-                "progress": round(progress, 2),  # Round to 2 decimal places
+                "paid_amount": str(total_paid),  # Still shows 1850 (includes penalties)
+                "emi_paid": str(total_emi_paid),  # Add for debugging/clarity
+                "penalties_paid": str(total_penalty_paid),  # Add for debugging/clarity
+                "progress": round(progress, 2),
                 "paid_installments": paid_installments,
                 "total_installments": total_installments
             })
 
         return Response(data)
-    
+
 # ==========================
 # loan view for owner (all loans in pund)
 # ==========================
@@ -730,16 +778,48 @@ class PundLoansView(APIView):
 
         data = []
         for loan in loans:
+            # Get all installments for this loan
+            installments = LoanInstallment.objects.filter(loan=loan)
+            
+            # Calculate total EMI paid (this reduces the loan balance)
+            total_emi_paid_data = installments.filter(is_paid=True).aggregate(
+                total_emi=models.Sum("emi_amount")
+            )
+            total_emi_paid = total_emi_paid_data["total_emi"] or Decimal("0")
+            
+            # Calculate total penalties paid (for display only)
+            total_penalty_paid_data = installments.filter(is_paid=True).aggregate(
+                total_penalty=models.Sum("penalty_amount")
+            )
+            total_penalty_paid = total_penalty_paid_data["total_penalty"] or Decimal("0")
+            
+            # Total amount paid (EMI + penalties) - for display
+            total_paid = total_emi_paid + total_penalty_paid
+            
+            # ✅ CORRECT: Remaining amount = total_payable - EMI paid only
+            remaining = loan.total_payable - total_emi_paid
+            
+            # ✅ CORRECT: Progress based on EMI paid vs total payable
+            progress = float((total_emi_paid / loan.total_payable) * 100) if loan.total_payable > 0 else 0
+            
+            # Calculate interest amount
+            interest_amount = loan.total_payable - loan.principal_amount
+            
             data.append({
                 "loan_id": loan.id,
                 "member": loan.member.email,
                 "principal": str(loan.principal_amount),
-                "remaining": str(loan.remaining_amount),
-                "status": loan.status
+                "remaining": str(remaining),  # Now correct: 3850
+                "total_payable": str(loan.total_payable),
+                "interest_amount": str(interest_amount),  # Add this for frontend
+                "paid_amount": str(total_paid),  # Shows 1850 (includes penalties)
+                "emi_paid": str(total_emi_paid),  # Add for debugging
+                "penalties_paid": str(total_penalty_paid),  # Add for debugging
+                "status": loan.status,
+                "progress": round(progress, 2)  # 30%, not 34%
             })
 
         return Response(data)
-
 
 #   ==========================
 # saving summary view 
