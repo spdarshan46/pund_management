@@ -159,41 +159,6 @@ const AddMemberModal = ({ isOpen, onClose, pundId, pundName, onSuccess }) => {
                 </form>
               </div>
 
-              {/* Divider */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
-                </div>
-                <div className="relative flex justify-center text-xs sm:text-sm">
-                  <span className="px-2 bg-white text-gray-500">OR</span>
-                </div>
-              </div>
-
-              {/* Invite Link Section */}
-              <div>
-                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2">Share Invite Link</h3>
-                <p className="text-[10px] sm:text-xs text-gray-500 mb-3">
-                  Share this link with members to join directly
-                </p>
-                <div className="flex items-center space-x-2">
-                  <div className="flex-1 relative">
-                    <FiLink className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                    <input
-                      type="text"
-                      value={inviteLink}
-                      readOnly
-                      className="w-full pl-9 pr-3 py-2 text-[10px] sm:text-xs bg-gray-50 border border-gray-200 rounded-lg"
-                    />
-                  </div>
-                  <button
-                    onClick={copyInviteLink}
-                    className="px-3 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition flex items-center space-x-1"
-                  >
-                    <FiCopy className="w-3.5 h-3.5" />
-                    <span className="text-[10px] sm:text-xs">{copied ? 'Copied!' : 'Copy'}</span>
-                  </button>
-                </div>
-              </div>
             </div>
           </motion.div>
         </motion.div>
