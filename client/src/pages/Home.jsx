@@ -3,10 +3,25 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
-  FiArrowRight, FiCheckCircle, FiUsers, FiLock, FiClock,
-  FiShield, FiPieChart, FiMenu, FiX, FiMail, FiLinkedin,
-  FiGithub, FiInstagram, FiTrendingUp, FiSun, FiMoon,
+  FiArrowRight,
+  FiCheckCircle,
+  FiUsers,
+  FiLock,
+  FiClock,
+  FiShield,
+  FiPieChart,
+  FiMenu,
+  FiX,
+  FiMail,
+  FiLinkedin,
+  FiGithub,
+  FiInstagram,
+  FiTrendingUp,
+  FiSun,
+  FiMoon
 } from 'react-icons/fi';
+
+import { useTheme } from '../context/ThemeContext';
 
 /* ═══════════════════════════════════════════════════════════
    DESIGN TOKENS + GLOBAL CSS
@@ -265,15 +280,50 @@ html { scroll-behavior: smooth; }
 .px-bg2 { background: var(--bg-2); }
 .px-steps {
   display: grid; grid-template-columns: repeat(3, 1fr);
-  border: 1px solid var(--bd); border-radius: 16px; overflow: hidden;
-  background: var(--bd); gap: 1px;
+  gap: 20px; position: relative;
 }
-.px-step { background: var(--surf); padding: 40px 32px; transition: background .15s; position: relative; }
-.px-step:hover { background: var(--bg-2); }
-.px-step-n { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--t4); margin-bottom: 20px; }
-.px-step-ico { font-size: 38px; display: block; margin-bottom: 18px; }
-.px-step-t { font-size: 18px; font-weight: 700; color: var(--t1); letter-spacing: -.02em; margin-bottom: 10px; }
-.px-step-d { font-size: 14px; line-height: 1.76; color: var(--t3); }
+/* connector line between cards */
+.px-steps::before {
+  content: '';
+  position: absolute;
+  top: 52px; left: calc(16.66% + 20px); right: calc(16.66% + 20px);
+  height: 2px;
+  background: linear-gradient(90deg, var(--blue-b), var(--blue), var(--blue-b));
+  opacity: .45; z-index: 0;
+  border-radius: 2px;
+}
+.dark .px-steps::before { opacity: .25; }
+.px-step {
+  background: var(--surf);
+  border: 1px solid var(--bd);
+  border-radius: 20px;
+  padding: 36px 28px 32px;
+  position: relative; z-index: 1;
+  transition: box-shadow .22s, transform .22s, border-color .22s;
+  display: flex; flex-direction: column; align-items: flex-start;
+}
+.px-step:hover {
+  box-shadow: 0 12px 36px rgba(37,99,235,.10);
+  transform: translateY(-5px);
+  border-color: var(--blue-b);
+}
+.dark .px-step:hover { box-shadow: 0 12px 36px rgba(88,166,255,.12); }
+/* numbered circle */
+.px-step-num {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--blue), #6d28d9);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; color: #fff;
+  margin-bottom: 24px; flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(37,99,235,.35);
+}
+.dark .px-step-num { box-shadow: 0 4px 14px rgba(88,166,255,.2); }
+.px-step-ico { font-size: 32px; display: block; margin-bottom: 14px; line-height: 1; }
+.px-step-t {
+  font-size: 17px; font-weight: 700; color: var(--t1);
+  letter-spacing: -.02em; margin-bottom: 10px;
+}
+.px-step-d { font-size: 13.5px; line-height: 1.78; color: var(--t3); }
 
 /* ── FEATURES ── */
 .px-feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
@@ -375,6 +425,7 @@ html { scroll-behavior: smooth; }
   .px-ham { display: flex !important; }
   .px-nav-wrap { gap: 0; }
   .px-steps { grid-template-columns: 1fr; }
+  .px-steps::before { display: none; }
   .px-feats { grid-template-columns: 1fr 1fr; }
 
   .px-uc-grid { grid-template-columns: repeat(3, 1fr); }
@@ -433,15 +484,7 @@ const Reveal = ({ children, delay = 0 }) => {
 ══════════════════════════════════════════════════════════ */
 const Home = () => {
   const [drawer, setDrawer]   = useState(false);
-  const [dark,   setDark]     = useState(false);
-
-  /* Persist theme like GitHub / Notion */
-  useEffect(() => {
-    try { const s = localStorage.getItem('pundx-theme'); if (s === 'dark') setDark(true); } catch (_) {}
-  }, []);
-  useEffect(() => {
-    try { localStorage.setItem('pundx-theme', dark ? 'dark' : 'light'); } catch (_) {}
-  }, [dark]);
+  const { dark, toggle } = useTheme();
 
   /* Drawer body-scroll lock */
   useEffect(() => {
@@ -495,7 +538,7 @@ const Home = () => {
             <div className="px-nav-right">
               <button
                 className="px-icon-btn"
-                onClick={() => setDark(d => !d)}
+                onClick={() => toggle()}
                 aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
               >
                 {dark ? <FiSun size={14} /> : <FiMoon size={14} />}
@@ -549,7 +592,7 @@ const Home = () => {
                     <button
                       className="px-btn-ghost"
                       style={{ width: '100%', justifyContent: 'center', gap: 8 }}
-                      onClick={() => setDark(d => !d)}
+                      onClick={() => toggle()}
                     >
                       {dark ? <><FiSun size={14} /> Light mode</> : <><FiMoon size={14} /> Dark mode</>}
                     </button>
@@ -623,7 +666,7 @@ const Home = () => {
               {steps.map((s, i) => (
                 <Reveal key={i} delay={i * 0.08}>
                   <div className="px-step">
-                    <p className="px-step-n">STEP {s.n}</p>
+                    <div className="px-step-num">{s.n}</div>
                     <span className="px-step-ico" role="img" aria-label={s.title}>{s.icon}</span>
                     <h3 className="px-step-t">{s.title}</h3>
                     <p className="px-step-d">{s.desc}</p>
