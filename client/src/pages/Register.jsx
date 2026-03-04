@@ -464,7 +464,7 @@ const Register = () => {
                     <div className="rg-inp-wrap">
                       <span className="rg-ico"><FiUser size={15} /></span>
                       <input id="rg-name" type="text" name="name" value={formData.name}
-                        onChange={handleChange} placeholder="John Doe" autoComplete="name"
+                        onChange={handleChange} placeholder="..Darshan" autoComplete="name"
                         className={`rg-input${errors.name ? ' err' : ''}`} />
                     </div>
                     {errors.name && <p className="rg-err-msg" role="alert">{errors.name}</p>}
@@ -476,7 +476,7 @@ const Register = () => {
                     <div className="rg-inp-wrap">
                       <span className="rg-ico"><FiMail size={15} /></span>
                       <input id="rg-email" type="email" name="email" value={formData.email}
-                        onChange={handleChange} placeholder="you@example.com" autoComplete="email"
+                        onChange={handleChange} placeholder="your@example.com" autoComplete="email"
                         className={`rg-input${errors.email ? ' err' : ''}`} />
                     </div>
                     {errors.email && <p className="rg-err-msg" role="alert">{errors.email}</p>}
