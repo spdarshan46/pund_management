@@ -75,31 +75,54 @@ const CSS = `
   background: radial-gradient(circle at 80% 20%, rgba(255,255,255,.12) 0%, transparent 60%);
   pointer-events: none;
 }
+/* Banner layout: row on desktop, wraps gracefully on mobile */
 .pf-banner-row {
-  display: flex; align-items: center; gap: 16px; position: relative; z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  z-index: 1;
+  flex-wrap: wrap;       /* ← allows edit btn to drop to next line if needed */
 }
 .pf-avatar {
-  width: 60px; height: 60px; border-radius: 16px; flex-shrink: 0;
+  width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
   background: rgba(255,255,255,.18);
   border: 2px solid rgba(255,255,255,.35);
   display: flex; align-items: center; justify-content: center;
-  font-size: 24px; font-weight: 800; color: #fff;
+  font-size: 22px; font-weight: 800; color: #fff;
   backdrop-filter: blur(8px);
 }
-.pf-banner-name {
-  font-size: 17px; font-weight: 700; color: #fff; letter-spacing: -.02em; margin-bottom: 3px;
+/* Text block — min-width:0 so long emails truncate instead of overflow */
+.pf-banner-text {
+  flex: 1;
+  min-width: 0;
 }
-.pf-banner-email { font-size: 13px; color: rgba(255,255,255,.75); }
+.pf-banner-name {
+  font-size: 16px; font-weight: 700; color: #fff; letter-spacing: -.02em;
+  margin-bottom: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pf-banner-email {
+  font-size: 12.5px; color: rgba(255,255,255,.75);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Edit button — always stays on the right, never pushes avatar */
 .pf-edit-btn {
-  margin-left: auto; flex-shrink: 0;
+  flex-shrink: 0;
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px; font-size: 12.5px; font-weight: 600;
+  padding: 7px 13px; font-size: 12.5px; font-weight: 600;
   color: #fff; background: rgba(255,255,255,.18);
   border: 1px solid rgba(255,255,255,.3);
   border-radius: 9px; cursor: pointer; font-family: inherit;
   backdrop-filter: blur(8px); transition: .15s;
+  white-space: nowrap;
 }
 .pf-edit-btn:hover { background: rgba(255,255,255,.28); border-color: rgba(255,255,255,.5); }
+/* On very small screens: make it an icon-only square */
+@media (max-width: 400px) {
+  .pf-edit-btn-label { display: none; }
+  .pf-edit-btn { padding: 7px 9px; }
+}
 
 /* ── Body ── */
 .pf-body { padding: 24px; }
@@ -375,13 +398,14 @@ const Profile = ({ userName: propName, userEmail: propEmail, onRefresh }) => {
           <div className="pf-banner">
             <div className="pf-banner-row">
               <div className="pf-avatar">{initials}</div>
-              <div style={{ minWidth: 0 }}>
+              <div className="pf-banner-text">
                 <div className="pf-banner-name">{userName}</div>
                 <div className="pf-banner-email">{userEmail}</div>
               </div>
               {!isEditing && (
                 <button className="pf-edit-btn" onClick={handleEditClick}>
-                  <FiEdit2 size={13} /> Edit Profile
+                  <FiEdit2 size={13} />
+                  <span className="pf-edit-btn-label">Edit Profile</span>
                 </button>
               )}
             </div>
