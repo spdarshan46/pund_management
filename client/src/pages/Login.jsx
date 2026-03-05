@@ -11,6 +11,15 @@ import { useTheme } from '../context/ThemeContext';
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+input[type="password"]::-webkit-textfield-decoration-container {
+  display: none !important;
+}
+
 .lg-root {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;

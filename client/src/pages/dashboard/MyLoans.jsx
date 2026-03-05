@@ -1,213 +1,404 @@
 // src/pages/dashboard/MyLoans.jsx
 import React, { useState, useEffect } from 'react';
-import { FiCreditCard, FiTrendingUp, FiCheckCircle, FiClock } from 'react-icons/fi';
+import { motion } from 'framer-motion';
+import {
+  FiCreditCard, FiTrendingUp, FiCheckCircle,
+  FiClock, FiAlertCircle, FiXCircle,
+} from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import api from '../../services/api';
 
+/* ─── STYLES ─────────────────────────────────────────────── */
+const CSS = `
+.ml-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+
+  --bg:       #f3f4f6;
+  --bg-2:     #e9eaec;
+  --surf:     #ffffff;
+  --t1:       #111827;
+  --t2:       #374151;
+  --t3:       #6b7280;
+  --t4:       #9ca3af;
+  --bd:       #e5e7eb;
+  --bd-2:     #d1d5db;
+  --blue:     #2563eb;
+  --blue-d:   #1d4ed8;
+  --blue-l:   #eff6ff;
+  --blue-b:   #bfdbfe;
+  --purple:   #7c3aed;
+  --purple-l: #f5f3ff;
+  --green:    #059669;
+  --green-l:  #ecfdf5;
+  --amber:    #d97706;
+  --amber-l:  #fffbeb;
+  --red:      #dc2626;
+  --red-l:    #fef2f2;
+  --gray-l:   #f3f4f6;
+  --sh:       0 1px 3px rgba(0,0,0,.07);
+  --sh-lg:    0 10px 36px rgba(0,0,0,.09);
+}
+.db-root.dark .ml-wrap {
+  --bg:       #0d1117;
+  --bg-2:     #21262d;
+  --surf:     #161b22;
+  --t1:       #f0f6fc;
+  --t2:       #c9d1d9;
+  --t3:       #8b949e;
+  --t4:       #6e7681;
+  --bd:       #30363d;
+  --bd-2:     #21262d;
+  --blue:     #58a6ff;
+  --blue-d:   #79c0ff;
+  --blue-l:   rgba(56,139,253,.12);
+  --blue-b:   rgba(56,139,253,.3);
+  --purple:   #a78bfa;
+  --purple-l: rgba(139,92,246,.12);
+  --green:    #34d399;
+  --green-l:  rgba(52,211,153,.1);
+  --amber:    #fbbf24;
+  --amber-l:  rgba(251,191,36,.1);
+  --red:      #f87171;
+  --red-l:    rgba(248,113,113,.1);
+  --gray-l:   rgba(255,255,255,.05);
+  --sh:       0 1px 3px rgba(0,0,0,.5);
+  --sh-lg:    0 10px 36px rgba(0,0,0,.4);
+}
+
+/* ── Page heading ── */
+.ml-heading {
+  font-size: 18px; font-weight: 700; color: var(--t1);
+  letter-spacing: -.025em; margin-bottom: 18px;
+}
+
+/* ── Loading ── */
+.ml-loading {
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px;
+  padding: 64px 0;
+}
+.ml-spin {
+  width: 32px; height: 32px;
+  border: 3px solid var(--bd); border-top-color: var(--blue);
+  border-radius: 50%; animation: ml-rot .7s linear infinite;
+}
+@keyframes ml-rot { to { transform: rotate(360deg); } }
+.ml-loading-txt { font-size: 13px; color: var(--t3); }
+
+/* ── Empty state ── */
+.ml-empty {
+  background: var(--surf); border: 1px solid var(--bd); border-radius: 18px;
+  padding: 56px 24px; text-align: center; box-shadow: var(--sh);
+}
+.ml-empty-ico {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--bg-2); border: 1px solid var(--bd);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px; color: var(--t4);
+}
+.ml-empty-title { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 6px; }
+.ml-empty-sub   { font-size: 13px; color: var(--t3); }
+
+/* ── Loan card ── */
+.ml-card {
+  background: var(--surf); border: 1px solid var(--bd); border-radius: 16px;
+  padding: 18px; box-shadow: var(--sh); margin-bottom: 12px;
+  transition: box-shadow .2s, border-color .2s;
+}
+.ml-card:last-child { margin-bottom: 0; }
+.ml-card:hover { box-shadow: var(--sh-lg); border-color: var(--bd-2); }
+
+/* ── Card header ── */
+.ml-card-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.ml-card-hd-left { display: flex; align-items: center; gap: 12px; }
+.ml-loan-icon {
+  width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
+  background: linear-gradient(135deg, #1d4ed8, #4f46e5);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; box-shadow: 0 2px 8px rgba(37,99,235,.28);
+}
+.ml-loan-name { font-size: 14px; font-weight: 700; color: var(--t1); margin-bottom: 2px; }
+.ml-loan-id   { font-size: 11.5px; color: var(--t3); }
+
+/* ── Status badge ── */
+.ml-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; padding: 4px 11px; border-radius: 100px;
+}
+.ml-badge-active   { background: var(--green-l);  color: var(--green);  }
+.ml-badge-pending  { background: var(--amber-l);  color: var(--amber);  }
+.ml-badge-approved { background: var(--blue-l);   color: var(--blue);   }
+.ml-badge-closed   { background: var(--gray-l);   color: var(--t3);     }
+.ml-badge-rejected { background: var(--red-l);    color: var(--red);    }
+
+/* ── Stat grid ── */
+.ml-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-bottom: 16px;
+}
+.ml-stat {
+  background: var(--bg); border: 1px solid var(--bd); border-radius: 11px;
+  padding: 12px 14px;
+}
+.ml-stat-lbl { font-size: 11px; color: var(--t3); font-weight: 500; margin-bottom: 4px; }
+.ml-stat-val { font-size: 15px; font-weight: 700; color: var(--t1); }
+.ml-stat-val.green  { color: var(--green); }
+.ml-stat-val.blue   { color: var(--blue);  }
+.ml-stat-val.amber  { color: var(--amber); }
+
+/* ── Progress ── */
+.ml-progress-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.ml-progress-lbl { font-size: 12px; color: var(--t3); font-weight: 500; }
+.ml-progress-pct { font-size: 12px; font-weight: 700; color: var(--t1); }
+.ml-track {
+  width: 100%; height: 6px; background: var(--bd); border-radius: 100px;
+  overflow: hidden; margin-bottom: 14px;
+}
+.ml-fill {
+  height: 100%; border-radius: 100px;
+  background: linear-gradient(90deg, #2563eb, #7c3aed);
+  transition: width .6s cubic-bezier(.25,1,.35,1);
+}
+.ml-fill.done { background: linear-gradient(90deg, #059669, #34d399); }
+
+/* ── Footer row ── */
+.ml-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 12px; border-top: 1px solid var(--bd); flex-wrap: wrap; gap: 10px;
+}
+.ml-footer-group { display: flex; align-items: center; gap: 20px; }
+.ml-footer-item-lbl { font-size: 11px; color: var(--t3); font-weight: 500; margin-bottom: 3px; }
+.ml-footer-item-val { font-size: 13px; font-weight: 600; color: var(--t1); }
+.ml-footer-item-val.green { color: var(--green); }
+.ml-footer-item-val.blue  { color: var(--blue); }
+.ml-emi-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 9px;
+  background: var(--blue-l); border: 1px solid var(--blue-b);
+  font-size: 13px; font-weight: 700; color: var(--blue);
+}
+.ml-paid-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 9px;
+  background: var(--green-l); border: 1px solid var(--green);
+  font-size: 12px; font-weight: 600; color: var(--green);
+}
+
+/* ── Skeleton ── */
+.ml-skel {
+  background: var(--surf); border: 1px solid var(--bd); border-radius: 16px;
+  padding: 18px; margin-bottom: 12px;
+}
+.ml-skel-line {
+  height: 14px; border-radius: 7px; background: var(--bd);
+  animation: ml-pulse 1.5s ease-in-out infinite; margin-bottom: 10px;
+}
+@keyframes ml-pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+`;
+
+let _mlIn = false;
+const Styles = () => {
+  useEffect(() => {
+    if (_mlIn) return;
+    const el = document.createElement('style');
+    el.textContent = CSS;
+    document.head.appendChild(el);
+    _mlIn = true;
+  }, []);
+  return null;
+};
+
+/* ── Helpers ── */
+const calculateEmi = (loan) => {
+  if (loan.total_installments > 0) {
+    return Math.round((parseFloat(loan.total_payable) || 0) / loan.total_installments);
+  }
+  return 0;
+};
+
+const calculateProgress = (loan) => {
+  if (loan.progress > 0) return loan.progress;
+  if (loan.total_installments > 0)
+    return Math.round((loan.paid_installments / loan.total_installments) * 100);
+  const total = parseFloat(loan.total_payable) || 0;
+  const paid  = parseFloat(loan.paid_amount)   || 0;
+  return total > 0 ? Math.round((paid / total) * 100) : 0;
+};
+
+const STATUS_META = {
+  active:   { cls: 'ml-badge-active',   icon: <FiTrendingUp  size={11} /> },
+  pending:  { cls: 'ml-badge-pending',  icon: <FiClock       size={11} /> },
+  approved: { cls: 'ml-badge-approved', icon: <FiCheckCircle size={11} /> },
+  closed:   { cls: 'ml-badge-closed',   icon: <FiCheckCircle size={11} /> },
+  rejected: { cls: 'ml-badge-rejected', icon: <FiXCircle     size={11} /> },
+};
+
+const statusMeta = (s) =>
+  STATUS_META[(s || '').toLowerCase()] || { cls: 'ml-badge-closed', icon: <FiAlertCircle size={11} /> };
+
+const fmt = (n) => Number(n || 0).toLocaleString('en-IN');
+
+/* ═══════════════════════════════════════════════════════════ */
 const MyLoans = () => {
-  const [loans, setLoans] = useState([]);
+  const [loans,   setLoans]   = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchLoans();
-  }, []);
+  useEffect(() => { fetchLoans(); }, []);
 
   const fetchLoans = async () => {
     try {
-      const response = await api.get('/finance/my-loans/');
-      console.log('Loans response:', response.data); // Debug log
-      setLoans(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error('Error fetching loans:', error);
+      const res = await api.get('/finance/my-loans/');
+      setLoans(Array.isArray(res.data) ? res.data : []);
+    } catch {
       toast.error('Failed to load loans');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  // Calculate EMI amount from total_payable and total_installments
-  const calculateEmi = (loan) => {
-    if (loan.total_installments && loan.total_installments > 0) {
-      const totalPayable = parseFloat(loan.total_payable) || 0;
-      return Math.round(totalPayable / loan.total_installments);
-    }
-    return 0;
-  };
-
-  // Calculate progress based on paid installments or paid amount
-  const calculateProgress = (loan) => {
-    // If progress is provided by API, use it
-    if (loan.progress && loan.progress > 0) {
-      return loan.progress;
-    }
-    
-    // Otherwise calculate from installments
-    if (loan.total_installments && loan.total_installments > 0) {
-      return Math.round((loan.paid_installments / loan.total_installments) * 100);
-    }
-    
-    // Or calculate from amounts
-    const totalPayable = parseFloat(loan.total_payable) || 0;
-    const paidAmount = parseFloat(loan.paid_amount) || 0;
-    if (totalPayable > 0) {
-      return Math.round((paidAmount / totalPayable) * 100);
-    }
-    
-    return 0;
-  };
-
-  const getStatusColor = (status) => {
-    switch(status?.toLowerCase()) {
-      case 'active':
-        return 'bg-green-100 text-green-700';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'approved':
-        return 'bg-blue-100 text-blue-700';
-      case 'closed':
-        return 'bg-gray-100 text-gray-700';
-      case 'rejected':
-        return 'bg-red-100 text-red-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch(status?.toLowerCase()) {
-      case 'active':
-        return <FiTrendingUp className="w-3 h-3 text-green-600" />;
-      case 'pending':
-        return <FiClock className="w-3 h-3 text-yellow-600" />;
-      case 'approved':
-        return <FiCheckCircle className="w-3 h-3 text-blue-600" />;
-      case 'closed':
-        return <FiCheckCircle className="w-3 h-3 text-gray-600" />;
-      default:
-        return null;
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-40">
-        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-4xl mx-auto">
-      <h1 className="text-base font-semibold text-gray-900 mb-3">My Loans</h1>
-
-      {loans.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
-          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
-            <FiCreditCard className="w-5 h-5 text-gray-400" />
+  /* ── Loading ── */
+  if (loading) return (
+    <>
+      <Styles />
+      <div className="ml-wrap">
+        <div className="ml-heading">My Loans</div>
+        {[0,1,2].map(i => (
+          <div key={i} className="ml-skel">
+            <div className="ml-skel-line" style={{ width: '40%' }} />
+            <div className="ml-skel-line" style={{ width: '70%' }} />
+            <div className="ml-skel-line" style={{ width: '55%' }} />
           </div>
-          <h3 className="text-sm font-medium text-gray-900 mb-1">No loans yet</h3>
-          <p className="text-xs text-gray-500">Your loans will appear here</p>
+        ))}
+      </div>
+    </>
+  );
+
+  /* ── Empty ── */
+  if (loans.length === 0) return (
+    <>
+      <Styles />
+      <div className="ml-wrap">
+        <div className="ml-heading">My Loans</div>
+        <div className="ml-empty">
+          <div className="ml-empty-ico"><FiCreditCard size={22} /></div>
+          <div className="ml-empty-title">No loans yet</div>
+          <div className="ml-empty-sub">Any loans from your punds will appear here</div>
         </div>
-      ) : (
-        <div className="space-y-2">
-          {loans.map((loan) => {
-            const emiAmount = calculateEmi(loan);
-            const progress = calculateProgress(loan);
-            const paidInstallments = loan.paid_installments || 0;
-            const totalInstallments = loan.total_installments || 0;
-            const principal = parseFloat(loan.principal) || 0;
-            const totalPayable = parseFloat(loan.total_payable) || 0;
-            const paidAmount = parseFloat(loan.paid_amount) || 0;
-            const remaining = parseFloat(loan.remaining) || (totalPayable - paidAmount);
-            
-            return (
-              <div key={loan.loan_id} className="bg-white border border-gray-200 rounded-lg p-3">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-6 h-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded flex items-center justify-center">
-                      <FiCreditCard className="w-3 h-3 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-900">
-                        {loan.pund} • Loan #{loan.loan_id}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    {getStatusIcon(loan.status)}
-                    <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${getStatusColor(loan.status)}`}>
-                      {loan.status}
-                    </span>
+      </div>
+    </>
+  );
+
+  /* ── Loans list ── */
+  return (
+    <>
+      <Styles />
+      <div className="ml-wrap">
+        <div className="ml-heading">My Loans</div>
+
+        {loans.map((loan, idx) => {
+          const emi              = calculateEmi(loan);
+          const progress         = calculateProgress(loan);
+          const principal        = parseFloat(loan.principal)     || 0;
+          const totalPayable     = parseFloat(loan.total_payable) || 0;
+          const paidAmount       = parseFloat(loan.paid_amount)   || 0;
+          const remaining        = parseFloat(loan.remaining)     || (totalPayable - paidAmount);
+          const paidInst         = loan.paid_installments         || 0;
+          const totalInst        = loan.total_installments        || 0;
+          const isCompleted      = totalInst > 0 && paidInst >= totalInst;
+          const status           = (loan.status || '').toLowerCase();
+          const meta             = statusMeta(loan.status);
+
+          return (
+            <motion.div key={loan.loan_id} className="ml-card"
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.34, delay: idx * 0.07, ease: [0.25, 1, 0.35, 1] }}
+            >
+              {/* Header */}
+              <div className="ml-card-hd">
+                <div className="ml-card-hd-left">
+                  <div className="ml-loan-icon"><FiCreditCard size={17} /></div>
+                  <div>
+                    <div className="ml-loan-name">{loan.pund || 'Pund Loan'}</div>
+                    <div className="ml-loan-id">Loan #{loan.loan_id}</div>
                   </div>
                 </div>
+                <span className={`ml-badge ${meta.cls}`}>
+                  {meta.icon}
+                  {loan.status}
+                </span>
+              </div>
 
-                {/* Amount Details */}
-                <div className="grid grid-cols-3 gap-2 mb-2">
-                  <div>
-                    <p className="text-[10px] text-gray-500">Principal</p>
-                    <p className="text-xs font-medium text-gray-900">₹{principal.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-500">Total Payable</p>
-                    <p className="text-xs font-medium text-gray-900">₹{totalPayable.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-500">Paid</p>
-                    <p className="text-xs font-medium text-green-600">₹{paidAmount.toLocaleString()}</p>
-                  </div>
+              {/* Stats */}
+              <div className="ml-stats">
+                <div className="ml-stat">
+                  <div className="ml-stat-lbl">Principal</div>
+                  <div className="ml-stat-val">₹{fmt(principal)}</div>
                 </div>
-
-                {/* Progress Bar */}
-                <div className="mb-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-[10px] text-gray-500">Progress</p>
-                    <p className="text-[10px] font-medium text-gray-700">{progress}%</p>
-                  </div>
-                  <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-blue-600 to-purple-600 rounded-full transition-all duration-300"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
+                <div className="ml-stat">
+                  <div className="ml-stat-lbl">Total Payable</div>
+                  <div className="ml-stat-val blue">₹{fmt(totalPayable)}</div>
                 </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div>
-                      <p className="text-[10px] text-gray-500">Installments</p>
-                      <p className="text-xs font-medium text-gray-900">
-                        {paidInstallments}/{totalInstallments}
-                        {totalInstallments === paidInstallments && totalInstallments > 0 && (
-                          <span className="ml-1 text-[10px] text-green-600">✓ Completed</span>
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-gray-500">Remaining</p>
-                      <p className="text-xs font-medium text-gray-900">₹{remaining.toLocaleString()}</p>
-                    </div>
-                  </div>
-                  {emiAmount > 0 && loan.status?.toLowerCase() === 'active' && (
-                    <div className="text-right">
-                      <p className="text-[10px] text-gray-500">EMI</p>
-                      <p className="text-xs font-medium text-blue-600">₹{emiAmount.toLocaleString()}/mo</p>
-                    </div>
-                  )}
-                  {loan.status?.toLowerCase() === 'closed' && (
-                    <div className="text-right">
-                      <p className="text-[10px] text-gray-500">Status</p>
-                      <p className="text-xs font-medium text-green-600">Fully Paid</p>
-                    </div>
-                  )}
+                <div className="ml-stat">
+                  <div className="ml-stat-lbl">Paid</div>
+                  <div className="ml-stat-val green">₹{fmt(paidAmount)}</div>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+
+              {/* Progress */}
+              <div className="ml-progress-row">
+                <span className="ml-progress-lbl">Repayment progress</span>
+                <span className="ml-progress-pct">{progress}%</span>
+              </div>
+              <div className="ml-track">
+                <div
+                  className={`ml-fill${isCompleted ? ' done' : ''}`}
+                  style={{ width: `${Math.min(progress, 100)}%` }}
+                />
+              </div>
+
+              {/* Footer */}
+              <div className="ml-footer">
+                <div className="ml-footer-group">
+                  <div>
+                    <div className="ml-footer-item-lbl">Installments</div>
+                    <div className="ml-footer-item-val">
+                      {paidInst} / {totalInst}
+                      {isCompleted && (
+                        <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--green)', fontWeight: 600 }}>
+                          ✓ Done
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="ml-footer-item-lbl">Remaining</div>
+                    <div className="ml-footer-item-val">₹{fmt(remaining)}</div>
+                  </div>
+                </div>
+
+                {emi > 0 && status === 'active' && (
+                  <div className="ml-emi-tag">
+                    ₹{fmt(emi)}<span style={{ fontSize: 11, fontWeight: 500, opacity: .8 }}>/mo</span>
+                  </div>
+                )}
+                {status === 'closed' && (
+                  <div className="ml-paid-tag">
+                    <FiCheckCircle size={13} /> Fully Paid
+                  </div>
+                )}
+              </div>
+
+            </motion.div>
+          );
+        })}
+      </div>
+    </>
   );
 };
 
