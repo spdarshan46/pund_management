@@ -1,25 +1,27 @@
-// src/pages/PundDetail/hooks/useMemberData.js
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import api from '../../../services/api';
 
-const useMemberData = (role) => {
+const useMemberData = (role, pundId) => {
   const [myFinancials, setMyFinancials] = useState(null);
   const [myLoans, setMyLoans] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const fetchMemberData = async () => {
-    if (role !== 'MEMBER') return;
-    
+    if (role !== 'MEMBER' || !pundId) return;
+
     setLoading(true);
+
     try {
-      // Fetch member financial summary
-      const financialResponse = await api.get('/finance/my-financial-summary/');
+      const financialResponse = await api.get(
+        `/finance/pund/${pundId}/my-financial-summary/`
+      );
+
       setMyFinancials(financialResponse.data);
 
-      // Fetch member loans
       const loansResponse = await api.get('/finance/my-loans/');
       setMyLoans(loansResponse.data);
+
     } catch (error) {
       console.error('Error fetching member data:', error);
       toast.error('Failed to load member data');
@@ -30,13 +32,8 @@ const useMemberData = (role) => {
 
   useEffect(() => {
     fetchMemberData();
-  }, [role]);
+  }, [role, pundId]);
 
-  const refetchMember = () => {
-    fetchMemberData();
-  };
-
-  return { myFinancials, myLoans, loading, refetchMember };
+  return { myFinancials, myLoans, loading, refetchMember: fetchMemberData };
 };
-
 export default useMemberData;

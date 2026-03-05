@@ -132,7 +132,7 @@ class MyAllPundsView(APIView):
 
         memberships = (
             Membership.objects
-            .filter(user=request.user, is_active=True)
+            .filter(user=request.user)
             .select_related("pund")
         )
 
@@ -232,7 +232,6 @@ class PundDetailView(APIView):
         membership = Membership.objects.filter(
             user=request.user,
             pund=pund,
-            is_active=True
         ).first()
 
         if not membership:
@@ -269,7 +268,7 @@ class PundDetailView(APIView):
 
             memberships = (
                 Membership.objects
-                .filter(pund=pund, is_active=True)
+                .filter(pund=pund)
                 .select_related("user")
             )
 

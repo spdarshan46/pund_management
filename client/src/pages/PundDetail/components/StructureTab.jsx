@@ -1,363 +1,493 @@
 // src/pages/PundDetail/components/StructureTab.jsx
-import React, { useState } from 'react';
-import { FiSave, FiInfo, FiCalendar, FiClock } from 'react-icons/fi';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  FiSave, FiInfo, FiCalendar, FiClock,
+  FiSliders, FiCheckCircle, FiAlertTriangle,
+} from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 
-const formatCurrency = (amount) => {
-  const numAmount = parseFloat(amount) || 0;
-  return `₹ ${numAmount.toLocaleString('en-IN')}`;
+/* ─── STYLES ─────────────────────────────────────────────── */
+const CSS = `
+.st-wrap {
+  max-width: 680px;
+  margin: 0 auto;
+
+  --bg:       #f3f4f6;
+  --bg-2:     #e9eaec;
+  --surf:     #ffffff;
+  --t1:       #111827;
+  --t2:       #374151;
+  --t3:       #6b7280;
+  --t4:       #9ca3af;
+  --bd:       #e5e7eb;
+  --bd-2:     #d1d5db;
+  --blue:     #2563eb;
+  --blue-d:   #1d4ed8;
+  --blue-l:   #eff6ff;
+  --blue-b:   #bfdbfe;
+  --amber:    #d97706;
+  --amber-l:  #fffbeb;
+  --amber-b:  #fde68a;
+  --red:      #dc2626;
+  --err:      #dc2626;
+  --err-l:    #fef2f2;
+  --sh-lg:    0 12px 40px rgba(0,0,0,.10);
+}
+.pd-root.dark .st-wrap {
+  --bg:       #0d1117;
+  --bg-2:     #21262d;
+  --surf:     #161b22;
+  --t1:       #f0f6fc;
+  --t2:       #c9d1d9;
+  --t3:       #8b949e;
+  --t4:       #6e7681;
+  --bd:       #30363d;
+  --bd-2:     #21262d;
+  --blue:     #58a6ff;
+  --blue-d:   #79c0ff;
+  --blue-l:   rgba(56,139,253,.12);
+  --blue-b:   rgba(56,139,253,.3);
+  --amber:    #fbbf24;
+  --amber-l:  rgba(251,191,36,.1);
+  --amber-b:  rgba(251,191,36,.25);
+  --err:      #f87171;
+  --err-l:    rgba(248,113,113,.1);
+  --sh-lg:    0 12px 40px rgba(0,0,0,.45);
+}
+
+/* ── Card ── */
+.st-card {
+  background: var(--surf); border: 1px solid var(--bd);
+  border-radius: 18px; overflow: hidden; box-shadow: var(--sh-lg);
+  margin-bottom: 14px;
+}
+.st-card:last-child { margin-bottom: 0; }
+
+/* ── Banner ── */
+.st-banner {
+  background: linear-gradient(135deg, #1d4ed8 0%, #4f46e5 60%, #7c3aed 100%);
+  padding: 22px 24px; position: relative; overflow: hidden;
+}
+.st-banner::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(255,255,255,.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+.st-banner-row { display: flex; align-items: center; gap: 14px; position: relative; z-index: 1; }
+.st-banner-icon {
+  width: 44px; height: 44px; border-radius: 13px; flex-shrink: 0;
+  background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.3);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; backdrop-filter: blur(8px);
+}
+.st-banner-title { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: -.02em; margin-bottom: 3px; }
+.st-banner-sub   { font-size: 12.5px; color: rgba(255,255,255,.72); }
+
+/* ── Body ── */
+.st-body { padding: 22px; }
+
+/* ── Current structure display ── */
+.st-current {
+  background: var(--blue-l); border: 1px solid var(--blue-b);
+  border-radius: 13px; padding: 16px; margin-bottom: 20px;
+}
+.st-current-hd {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; color: var(--blue);
+  margin-bottom: 12px;
+}
+.st-current-date {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--t3); margin-bottom: 12px;
+  background: var(--surf); border: 1px solid var(--bd);
+  padding: 8px 12px; border-radius: 8px;
+}
+.st-current-date span { color: var(--t2); font-weight: 500; }
+.st-current-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+}
+@media (min-width: 640px) { .st-current-grid { grid-template-columns: repeat(5, 1fr); } }
+.st-current-cell {
+  background: var(--surf); border: 1px solid var(--bd);
+  border-radius: 9px; padding: 10px 12px;
+}
+.st-current-lbl { font-size: 10.5px; color: var(--blue); font-weight: 500; margin-bottom: 4px; }
+.st-current-val { font-size: 14px; font-weight: 700; color: var(--t1); }
+
+/* ── Section label ── */
+.st-section-lbl {
+  font-size: 12.5px; font-weight: 600; color: var(--t2); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 7px;
+}
+
+/* ── Effective date picker ── */
+.st-eff-box {
+  background: var(--bg); border: 1px solid var(--bd);
+  border-radius: 12px; padding: 16px; margin-bottom: 20px;
+}
+.st-radio-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 9px; cursor: pointer;
+  border: 1.5px solid var(--bd); background: var(--surf);
+  margin-bottom: 8px; transition: border-color .15s, background .15s;
+}
+.st-radio-row:last-child { margin-bottom: 0; }
+.st-radio-row.selected { border-color: var(--blue); background: var(--blue-l); }
+.st-radio-row input[type="radio"] {
+  width: 15px; height: 15px; accent-color: var(--blue); flex-shrink: 0; cursor: pointer;
+}
+.st-radio-lbl { font-size: 13px; font-weight: 500; color: var(--t2); }
+.st-radio-row.selected .st-radio-lbl { color: var(--blue); }
+.st-radio-hint { font-size: 11.5px; color: var(--t4); margin-left: auto; }
+.st-date-input-wrap { margin-top: 10px; padding-left: 25px; }
+.st-date-input {
+  width: 100%; height: 42px; padding: 0 14px;
+  font-size: 13.5px; font-family: inherit; color: var(--t1);
+  background: var(--surf); border: 1px solid var(--bd); border-radius: 9px; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.st-date-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-l); }
+.st-date-hint { font-size: 11.5px; color: var(--t4); margin-top: 5px; }
+
+/* ── Form fields grid ── */
+.st-form-grid {
+  display: grid; grid-template-columns: 1fr; gap: 14px;
+}
+@media (min-width: 560px) { .st-form-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.st-field { margin-bottom: 0; }
+.st-label {
+  display: block; font-size: 13px; font-weight: 500;
+  color: var(--t2); margin-bottom: 5px;
+}
+.st-req { color: var(--err); margin-left: 2px; }
+.st-inp-wrap { position: relative; }
+.st-ico {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  color: var(--t4); pointer-events: none; display: flex; align-items: center;
+}
+.st-input {
+  width: 100%; height: 44px; padding: 0 14px 0 40px;
+  font-size: 14px; font-family: inherit; color: var(--t1);
+  background: var(--bg); border: 1px solid var(--bd); border-radius: 10px; outline: none;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+  -moz-appearance: textfield;
+}
+.st-input::-webkit-inner-spin-button,
+.st-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.st-input::placeholder { color: var(--t4); }
+.st-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-l); background: var(--surf); }
+.st-input.err { border-color: var(--err); box-shadow: 0 0 0 3px var(--err-l); }
+.st-field-hint { font-size: 11.5px; color: var(--t4); margin-top: 4px; }
+.st-err-msg { font-size: 12px; color: var(--err); margin-top: 4px; }
+
+/* Full-width field */
+.st-field-full { grid-column: 1 / -1; }
+
+/* ── Info / warning box ── */
+.st-info {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px; border-radius: 12px; margin: 18px 0 0;
+  background: var(--amber-l); border: 1px solid var(--amber-b);
+}
+.st-info-ico { color: var(--amber); flex-shrink: 0; margin-top: 1px; }
+.st-info-title { font-size: 13px; font-weight: 600; color: var(--amber); margin-bottom: 4px; }
+.st-info-body  { font-size: 12.5px; color: var(--amber); opacity: .85; line-height: 1.5; }
+
+/* ── Divider ── */
+.st-divider { height: 1px; background: var(--bd); margin: 20px 0; }
+
+/* ── Submit row ── */
+.st-submit-row { display: flex; justify-content: flex-end; margin-top: 20px; }
+.st-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 0 22px; height: 44px;
+  font-size: 14px; font-weight: 600; color: #fff;
+  background: var(--blue); border: none; border-radius: 10px;
+  cursor: pointer; font-family: inherit;
+  box-shadow: 0 3px 12px rgba(37,99,235,.35);
+  transition: background .15s, transform .15s, box-shadow .15s;
+}
+.st-btn:hover:not(:disabled) { background: var(--blue-d); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37,99,235,.45); }
+.st-btn:disabled { opacity: .6; cursor: not-allowed; }
+.st-spin {
+  width: 17px; height: 17px;
+  border: 2px solid rgba(255,255,255,.3); border-top-color: #fff;
+  border-radius: 50%; animation: st-rot .65s linear infinite;
+}
+@keyframes st-rot { to { transform: rotate(360deg); } }
+
+/* Footer hint */
+.st-footer-hint {
+  text-align: center; font-size: 12px; color: var(--t4); margin-top: 14px;
+}
+`;
+
+let _stIn = false;
+const Styles = () => {
+  useEffect(() => {
+    if (_stIn) return;
+    const el = document.createElement('style');
+    el.textContent = CSS;
+    document.head.appendChild(el);
+    _stIn = true;
+  }, []);
+  return null;
 };
 
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  // Parse YYYY-MM-DD format directly
-  const [year, month, day] = dateString.split('-');
-  if (year && month && day) {
-    return `${day}/${month}/${year}`;
-  }
-  return dateString;
+/* ─── helpers ─────────────────────────────────────────────── */
+const fmt    = (v) => `₹${(parseFloat(v) || 0).toLocaleString('en-IN')}`;
+const fmtDate = (s) => {
+  if (!s) return 'N/A';
+  const [y, m, d] = s.split('-');
+  return y && m && d ? `${d}/${m}/${y}` : s;
+};
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+const nextWeekStr = () => {
+  const d = new Date(); d.setDate(d.getDate() + 7);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 };
 
-// Get today's date in YYYY-MM-DD format for min attribute
-const getTodayDate = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+/* ─── field config ── */
+const FIELDS = [
+  { name: 'saving_amount',           label: 'Saving amount',         icon: '₹', placeholder: 'e.g. 1000', min: '1',   step: '1',   hint: '' },
+  { name: 'loan_interest_percentage',label: 'Interest rate',         icon: '%', placeholder: 'e.g. 10',   min: '0',   step: '0.1', hint: 'Per cycle' },
+  { name: 'missed_saving_penalty',   label: 'Missed saving penalty', icon: '₹', placeholder: 'e.g. 100',  min: '0',   step: '1',   hint: '' },
+  { name: 'missed_loan_penalty',     label: 'Missed loan penalty',   icon: '₹', placeholder: 'e.g. 100',  min: '0',   step: '1',   hint: '' },
+];
 
-// Get date 7 days from now in YYYY-MM-DD format
-const getNextWeekDate = () => {
-  const today = new Date();
-  const nextWeek = new Date(today);
-  nextWeek.setDate(today.getDate() + 7);
-  const year = nextWeek.getFullYear();
-  const month = String(nextWeek.getMonth() + 1).padStart(2, '0');
-  const day = String(nextWeek.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
+/* ═══════════════════════════════════════════════════════════ */
 const StructureTab = ({ pundData, onSubmit }) => {
-  const [structureData, setStructureData] = useState({
-    saving_amount: pundData?.structure?.saving_amount || '',
+  const [data, setData] = useState({
+    saving_amount:            pundData?.structure?.saving_amount            || '',
     loan_interest_percentage: pundData?.structure?.loan_interest_percentage || '',
-    missed_saving_penalty: pundData?.structure?.missed_saving_penalty || '',
-    missed_loan_penalty: pundData?.structure?.missed_loan_penalty || '',
-    default_loan_cycles: pundData?.structure?.default_loan_cycles || '10',
-    effective_from: ''
+    missed_saving_penalty:    pundData?.structure?.missed_saving_penalty    || '',
+    missed_loan_penalty:      pundData?.structure?.missed_loan_penalty      || '',
+    default_loan_cycles:      pundData?.structure?.default_loan_cycles      || '10',
+    effective_from:           '',
   });
-  const [submitting, setSubmitting] = useState(false);
-  const [effectiveOption, setEffectiveOption] = useState('auto'); // 'auto' or 'manual'
+  const [effectiveOpt, setEffectiveOpt] = useState('auto');
+  const [errors,    setErrors]    = useState({});
+  const [submitting,setSubmitting]= useState(false);
+
+  const handleChange = (e) => {
+    setData(p => ({ ...p, [e.target.name]: e.target.value }));
+    if (errors[e.target.name]) setErrors(p => ({ ...p, [e.target.name]: '' }));
+  };
+
+  const validate = () => {
+    const errs = {};
+    if (!data.saving_amount            || parseFloat(data.saving_amount) <= 0)            errs.saving_amount            = 'Enter a valid amount (> 0)';
+    if (data.loan_interest_percentage === '' || parseFloat(data.loan_interest_percentage) < 0) errs.loan_interest_percentage = 'Enter a valid rate (≥ 0)';
+    if (data.missed_saving_penalty    === '' || parseFloat(data.missed_saving_penalty) < 0)    errs.missed_saving_penalty    = 'Enter a valid penalty (≥ 0)';
+    if (data.missed_loan_penalty      === '' || parseFloat(data.missed_loan_penalty) < 0)      errs.missed_loan_penalty      = 'Enter a valid penalty (≥ 0)';
+    if (!data.default_loan_cycles      || parseInt(data.default_loan_cycles) < 1)              errs.default_loan_cycles      = 'Enter at least 1 cycle';
+    if (effectiveOpt === 'manual' && !data.effective_from)                                     errs.effective_from           = 'Please select a date';
+    setErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validation
-    if (!structureData.saving_amount || parseFloat(structureData.saving_amount) <= 0) {
-      toast.error('Please enter a valid saving amount');
-      return;
-    }
-    if (!structureData.loan_interest_percentage || parseFloat(structureData.loan_interest_percentage) < 0) {
-      toast.error('Please enter a valid interest rate');
-      return;
-    }
-    if (!structureData.missed_saving_penalty || parseFloat(structureData.missed_saving_penalty) < 0) {
-      toast.error('Please enter a valid missed saving penalty');
-      return;
-    }
-    if (!structureData.missed_loan_penalty || parseFloat(structureData.missed_loan_penalty) < 0) {
-      toast.error('Please enter a valid missed loan penalty');
-      return;
-    }
-    if (!structureData.default_loan_cycles || parseInt(structureData.default_loan_cycles) < 1) {
-      toast.error('Please enter a valid number of cycles');
-      return;
-    }
-
-    // Prepare payload
+    if (!validate()) return;
     const payload = {
-      saving_amount: parseFloat(structureData.saving_amount),
-      loan_interest_percentage: parseFloat(structureData.loan_interest_percentage),
-      missed_saving_penalty: parseFloat(structureData.missed_saving_penalty),
-      missed_loan_penalty: parseFloat(structureData.missed_loan_penalty),
-      default_loan_cycles: parseInt(structureData.default_loan_cycles)
+      saving_amount:            parseFloat(data.saving_amount),
+      loan_interest_percentage: parseFloat(data.loan_interest_percentage),
+      missed_saving_penalty:    parseFloat(data.missed_saving_penalty),
+      missed_loan_penalty:      parseFloat(data.missed_loan_penalty),
+      default_loan_cycles:      parseInt(data.default_loan_cycles),
     };
-    
-    // Add effective_from only for manual mode
-    if (effectiveOption === 'manual' && structureData.effective_from) {
-      payload.effective_from = structureData.effective_from;
-    }
-    // For auto mode, don't send effective_from (backend will set to 7 days)
-
-    console.log('Submitting payload:', payload);
+    if (effectiveOpt === 'manual' && data.effective_from) payload.effective_from = data.effective_from;
     setSubmitting(true);
     await onSubmit(payload);
     setSubmitting(false);
   };
 
-  const handleChange = (e) => {
-    setStructureData({
-      ...structureData,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const hasCurrentStructure = pundData?.structure;
+  const hasStructure = !!pundData?.structure;
 
   return (
-    <div className="max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="mb-4">
-        <h2 className="text-base font-semibold text-gray-900">Pund Structure Settings</h2>
-        <p className="text-[10px] text-gray-500 mt-1">
-          Configure the financial rules for this pund
-        </p>
-      </div>
+    <>
+      <Styles />
+      <div className="st-wrap">
 
-      {/* Current Structure Card (if exists) */}
-      {hasCurrentStructure && (
-        <div className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3">
-          <div className="flex items-center space-x-2 mb-2">
-            <FiInfo className="w-4 h-4 text-blue-600" />
-            <h3 className="text-xs font-semibold text-blue-700">Current Active Structure</h3>
-          </div>
-          
-          {/* Effective Date */}
-          {pundData.structure.effective_from && (
-            <div className="flex items-center space-x-2 mb-3 text-[10px] text-gray-600 bg-white/50 p-2 rounded-lg">
-              <FiCalendar className="w-3.5 h-3.5 text-blue-600" />
-              <span>Effective from: <span className="font-medium">{formatDate(pundData.structure.effective_from)}</span></span>
-            </div>
-          )}
-          
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[10px]">
-            <div className="bg-white/50 p-2 rounded">
-              <p className="text-blue-600 text-[8px]">Saving Amount</p>
-              <p className="font-bold text-gray-900">{formatCurrency(pundData.structure.saving_amount)}</p>
-            </div>
-            <div className="bg-white/50 p-2 rounded">
-              <p className="text-blue-600 text-[8px]">Interest Rate</p>
-              <p className="font-bold text-gray-900">{pundData.structure.loan_interest_percentage}%</p>
-            </div>
-            <div className="bg-white/50 p-2 rounded">
-              <p className="text-blue-600 text-[8px]">Saving Penalty</p>
-              <p className="font-bold text-gray-900">{formatCurrency(pundData.structure.missed_saving_penalty)}</p>
-            </div>
-            <div className="bg-white/50 p-2 rounded">
-              <p className="text-blue-600 text-[8px]">Loan Penalty</p>
-              <p className="font-bold text-gray-900">{formatCurrency(pundData.structure.missed_loan_penalty)}</p>
-            </div>
-            <div className="bg-white/50 p-2 rounded">
-              <p className="text-blue-600 text-[8px]">Loan Cycles</p>
-              <p className="font-bold text-gray-900">{pundData.structure.default_loan_cycles}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Structure Form */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-2">
-          <h3 className="text-white text-xs font-medium">
-            {hasCurrentStructure ? 'Update Structure' : 'Set New Structure'}
-          </h3>
-        </div>
-
-        <div className="p-4">
-          {/* Effective Date Selection */}
-          <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
-            <div className="flex items-center space-x-2 mb-2">
-              <FiClock className="w-4 h-4 text-gray-600" />
-              <h4 className="text-xs font-medium text-gray-700">Effective Date</h4>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  checked={effectiveOption === 'auto'}
-                  onChange={() => {
-                    setEffectiveOption('auto');
-                    setStructureData({...structureData, effective_from: ''});
-                  }}
-                  className="w-3.5 h-3.5 text-blue-600"
-                />
-                <span className="text-xs text-gray-700">Auto (7 days from now)</span>
-                <span className="text-[10px] text-gray-500 ml-2">{formatDate(getNextWeekDate())}</span>
-              </label>
-              
-              <label className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  checked={effectiveOption === 'manual'}
-                  onChange={() => setEffectiveOption('manual')}
-                  className="w-3.5 h-3.5 text-blue-600"
-                />
-                <span className="text-xs text-gray-700">Manual</span>
-              </label>
-              
-              {effectiveOption === 'manual' && (
-                <div className="mt-2 pl-6">
-                  <input
-                    type="date"
-                    name="effective_from"
-                    value={structureData.effective_from}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-                    required={effectiveOption === 'manual'}
-                  />
-                  <p className="text-[8px] text-gray-400 mt-1">
-                    Select a future date for the structure to take effect
-                  </p>
+        {/* ── Main form card ── */}
+        <motion.div className="st-card"
+          initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.38, ease: [0.25,1,.35,1] }}
+        >
+          {/* Banner */}
+          <div className="st-banner">
+            <div className="st-banner-row">
+              <div className="st-banner-icon"><FiSliders size={20} /></div>
+              <div>
+                <div className="st-banner-title">
+                  {hasStructure ? 'Update Pund Structure' : 'Set Pund Structure'}
                 </div>
-              )}
+                <div className="st-banner-sub">Configure the financial rules for this pund</div>
+              </div>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Saving Amount */}
-              <div>
-                <label className="block text-[10px] font-medium text-gray-700 mb-1">
-                  Saving Amount (₹) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="saving_amount"
-                  value={structureData.saving_amount}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-                  placeholder="e.g., 1000"
-                  min="1"
-                  step="1"
-                  required
-                />
-              </div>
+          <div className="st-body">
 
-              {/* Interest Rate */}
-              <div>
-                <label className="block text-[10px] font-medium text-gray-700 mb-1">
-                  Interest Rate (%) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="loan_interest_percentage"
-                  value={structureData.loan_interest_percentage}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-                  placeholder="e.g., 10"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  required
-                />
-              </div>
+            {/* ── Current structure ── */}
+            {hasStructure && (
+              <div className="st-current">
+                <div className="st-current-hd">
+                  <FiInfo size={14} /> Current Active Structure
+                </div>
 
-              {/* Missed Saving Penalty */}
-              <div>
-                <label className="block text-[10px] font-medium text-gray-700 mb-1">
-                  Missed Saving Penalty (₹) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="missed_saving_penalty"
-                  value={structureData.missed_saving_penalty}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-                  placeholder="e.g., 100"
-                  min="0"
-                  step="1"
-                  required
-                />
-              </div>
-
-              {/* Missed Loan Penalty */}
-              <div>
-                <label className="block text-[10px] font-medium text-gray-700 mb-1">
-                  Missed Loan Penalty (₹) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="missed_loan_penalty"
-                  value={structureData.missed_loan_penalty}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-                  placeholder="e.g., 100"
-                  min="0"
-                  step="1"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Default Loan Cycles - Full width */}
-            <div>
-              <label className="block text-[10px] font-medium text-gray-700 mb-1">
-                Default Loan Cycles <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="default_loan_cycles"
-                value={structureData.default_loan_cycles}
-                onChange={handleChange}
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500/20"
-                placeholder="e.g., 10"
-                min="1"
-                step="1"
-                required
-              />
-              <p className="text-[8px] text-gray-400 mt-1">
-                Number of cycles for loan repayment (default: 10)
-              </p>
-            </div>
-
-            {/* Info Box */}
-            <div className="bg-yellow-50 rounded-lg p-3 flex items-start space-x-2">
-              <FiInfo className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[9px] text-yellow-700">
-                  <span className="font-medium">Note:</span> New structure will be effective from{' '}
-                  {effectiveOption === 'auto' 
-                    ? <span className="font-semibold">{formatDate(getNextWeekDate())}</span>
-                    : 'the selected date'
-                  }.
-                </p>
-                <p className="text-[8px] text-yellow-600 mt-1">
-                  Current structure remains active until then. Existing cycles continue with their current rules.
-                </p>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-end pt-2">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-5 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg text-xs hover:shadow-md transition disabled:opacity-50 flex items-center space-x-2"
-              >
-                {submitting ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <FiSave className="w-3.5 h-3.5" />
-                    <span>{hasCurrentStructure ? 'Update Structure' : 'Save Structure'}</span>
-                  </>
+                {pundData.structure.effective_from && (
+                  <div className="st-current-date">
+                    <FiCalendar size={13} />
+                    Effective from: <span>{fmtDate(pundData.structure.effective_from)}</span>
+                  </div>
                 )}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
 
-      {/* Help Text */}
-      <div className="mt-4 text-[8px] text-gray-400 text-center">
-        All amounts are in Indian Rupees (₹). Interest rate is per cycle.
+                <div className="st-current-grid">
+                  {[
+                    { lbl: 'Saving Amount',    val: fmt(pundData.structure.saving_amount) },
+                    { lbl: 'Interest Rate',    val: `${pundData.structure.loan_interest_percentage}%` },
+                    { lbl: 'Saving Penalty',   val: fmt(pundData.structure.missed_saving_penalty) },
+                    { lbl: 'Loan Penalty',     val: fmt(pundData.structure.missed_loan_penalty) },
+                    { lbl: 'Loan Cycles',      val: pundData.structure.default_loan_cycles },
+                  ].map((c, i) => (
+                    <div key={i} className="st-current-cell">
+                      <div className="st-current-lbl">{c.lbl}</div>
+                      <div className="st-current-val">{c.val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Effective date ── */}
+            <div className="st-section-lbl">
+              <FiClock size={13} /> Effective date
+            </div>
+            <div className="st-eff-box">
+              {/* Auto option */}
+              <label className={`st-radio-row${effectiveOpt === 'auto' ? ' selected' : ''}`}>
+                <input type="radio" checked={effectiveOpt === 'auto'}
+                  onChange={() => { setEffectiveOpt('auto'); setData(p => ({ ...p, effective_from: '' })); setErrors(p => ({ ...p, effective_from: '' })); }} />
+                <span className="st-radio-lbl">Auto — 7 days from now</span>
+                <span className="st-radio-hint">{fmtDate(nextWeekStr())}</span>
+              </label>
+
+              {/* Manual option */}
+              <label className={`st-radio-row${effectiveOpt === 'manual' ? ' selected' : ''}`}
+                style={{ flexWrap: 'wrap', gap: 8 }}
+              >
+                <input type="radio" checked={effectiveOpt === 'manual'}
+                  onChange={() => setEffectiveOpt('manual')} />
+                <span className="st-radio-lbl">Manual — pick a date</span>
+
+                <AnimatePresence>
+                  {effectiveOpt === 'manual' && (
+                    <motion.div className="st-date-input-wrap" style={{ width: '100%' }}
+                      initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }}
+                    >
+                      <input type="date" name="effective_from"
+                        value={data.effective_from} onChange={handleChange}
+                        min={todayStr()}
+                        className={`st-date-input${errors.effective_from ? ' err' : ''}`}
+                      />
+                      {errors.effective_from
+                        ? <p className="st-err-msg" role="alert">{errors.effective_from}</p>
+                        : <p className="st-date-hint">Select a future date for the structure to take effect</p>
+                      }
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </label>
+            </div>
+
+            {/* ── Form fields ── */}
+            <div className="st-section-lbl">
+              <FiSliders size={13} /> Financial parameters
+            </div>
+            <form onSubmit={handleSubmit} noValidate>
+              <div className="st-form-grid">
+                {FIELDS.map(f => (
+                  <div key={f.name} className="st-field">
+                    <label className="st-label" htmlFor={`st-${f.name}`}>
+                      {f.label} <span className="st-req">*</span>
+                    </label>
+                    <div className="st-inp-wrap">
+                      <span className="st-ico" style={{ fontSize: 13, fontWeight: 700 }}>{f.icon}</span>
+                      <input id={`st-${f.name}`} type="number" name={f.name}
+                        value={data[f.name]} onChange={handleChange}
+                        placeholder={f.placeholder} min={f.min} step={f.step}
+                        className={`st-input${errors[f.name] ? ' err' : ''}`}
+                      />
+                    </div>
+                    {errors[f.name]
+                      ? <p className="st-err-msg" role="alert">{errors[f.name]}</p>
+                      : f.hint && <p className="st-field-hint">{f.hint}</p>
+                    }
+                  </div>
+                ))}
+
+                {/* Default loan cycles — full width */}
+                <div className="st-field st-field-full">
+                  <label className="st-label" htmlFor="st-cycles">
+                    Default loan cycles <span className="st-req">*</span>
+                  </label>
+                  <div className="st-inp-wrap">
+                    <span className="st-ico" style={{ fontSize: 12, fontWeight: 700 }}>#</span>
+                    <input id="st-cycles" type="number" name="default_loan_cycles"
+                      value={data.default_loan_cycles} onChange={handleChange}
+                      placeholder="e.g. 10" min="1" step="1"
+                      className={`st-input${errors.default_loan_cycles ? ' err' : ''}`}
+                    />
+                  </div>
+                  {errors.default_loan_cycles
+                    ? <p className="st-err-msg" role="alert">{errors.default_loan_cycles}</p>
+                    : <p className="st-field-hint">Number of cycles for loan repayment (default: 10)</p>
+                  }
+                </div>
+              </div>
+
+              {/* Warning info */}
+              <div className="st-info">
+                <span className="st-info-ico"><FiAlertTriangle size={15} /></span>
+                <div>
+                  <div className="st-info-title">Before you save</div>
+                  <div className="st-info-body">
+                    New structure will be effective from{' '}
+                    <strong>
+                      {effectiveOpt === 'auto' ? fmtDate(nextWeekStr()) : (data.effective_from ? fmtDate(data.effective_from) : 'the selected date')}
+                    </strong>.
+                    The current structure remains active until then, and existing cycles continue under current rules.
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit */}
+              <div className="st-submit-row">
+                <motion.button type="submit" className="st-btn" disabled={submitting}
+                  whileHover={!submitting ? { scale: 1.015 } : {}}
+                  whileTap={!submitting ? { scale: 0.985 } : {}}
+                >
+                  {submitting
+                    ? <div className="st-spin" />
+                    : <><FiSave size={14} /> {hasStructure ? 'Update structure' : 'Save structure'}</>
+                  }
+                </motion.button>
+              </div>
+            </form>
+          </div>
+        </motion.div>
+
+        {/* Footer hint */}
+        <p className="st-footer-hint">All amounts are in Indian Rupees (₹). Interest rate is applied per cycle.</p>
       </div>
-    </div>
+    </>
   );
 };
 

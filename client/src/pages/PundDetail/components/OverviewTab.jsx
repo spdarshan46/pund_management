@@ -1,381 +1,510 @@
 // src/pages/PundDetail/components/OverviewTab.jsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiInfo, FiDollarSign, FiTrendingUp, FiClock } from 'react-icons/fi';
+import {
+  FiInfo, FiDollarSign, FiTrendingUp, FiClock,
+  FiAlertCircle, FiCheckCircle, FiPercent,
+  FiUsers, FiRepeat, FiBarChart2,
+} from 'react-icons/fi';
 import api from '../../../services/api';
 
-const formatCurrency = (amount) => {
-  const numAmount = parseFloat(amount) || 0;
-  return `₹ ${numAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-};
+/* ─── STYLES ─────────────────────────────────────────────── */
+const CSS = `
+.ov-wrap {
+  --bg:       #f3f4f6;
+  --bg-2:     #e9eaec;
+  --surf:     #ffffff;
+  --t1:       #111827;
+  --t2:       #374151;
+  --t3:       #6b7280;
+  --t4:       #9ca3af;
+  --bd:       #e5e7eb;
+  --bd-2:     #d1d5db;
+  --blue:     #2563eb;
+  --blue-l:   #eff6ff;
+  --blue-b:   #bfdbfe;
+  --purple:   #7c3aed;
+  --purple-l: #f5f3ff;
+  --green:    #059669;
+  --green-l:  #ecfdf5;
+  --amber:    #d97706;
+  --amber-l:  #fffbeb;
+  --red:      #dc2626;
+  --red-l:    #fef2f2;
+  --sh:       0 1px 3px rgba(0,0,0,.07);
+  --sh-lg:    0 10px 36px rgba(0,0,0,.09);
+}
+.pd-root.dark .ov-wrap {
+  --bg:       #0d1117;
+  --bg-2:     #21262d;
+  --surf:     #161b22;
+  --t1:       #f0f6fc;
+  --t2:       #c9d1d9;
+  --t3:       #8b949e;
+  --t4:       #6e7681;
+  --bd:       #30363d;
+  --bd-2:     #21262d;
+  --blue:     #58a6ff;
+  --blue-l:   rgba(56,139,253,.12);
+  --blue-b:   rgba(56,139,253,.3);
+  --purple:   #a78bfa;
+  --purple-l: rgba(139,92,246,.12);
+  --green:    #34d399;
+  --green-l:  rgba(52,211,153,.1);
+  --amber:    #fbbf24;
+  --amber-l:  rgba(251,191,36,.1);
+  --red:      #f87171;
+  --red-l:    rgba(248,113,113,.1);
+  --sh:       0 1px 3px rgba(0,0,0,.5);
+  --sh-lg:    0 10px 36px rgba(0,0,0,.4);
+}
 
-const parseAmount = (value) => {
-  return parseFloat(value) || 0;
-};
+/* ── Loading ── */
+.ov-loading {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; padding: 64px 0;
+}
+.ov-spin {
+  width: 28px; height: 28px;
+  border: 3px solid var(--bd); border-top-color: var(--blue);
+  border-radius: 50%; animation: ov-rot .7s linear infinite;
+}
+@keyframes ov-rot { to { transform: rotate(360deg); } }
+.ov-loading-txt { font-size: 13px; color: var(--t3); }
 
-const OverviewTab = ({ pundData, role, fundSummary: propFundSummary, savingSummary: propSavingSummary, myFinancials }) => {
-  const [fundSummary, setFundSummary] = useState(propFundSummary);
-  const [savingSummary, setSavingSummary] = useState(propSavingSummary);
-  const [loading, setLoading] = useState(false);
+/* ── Section spacing ── */
+.ov-section { margin-bottom: 14px; }
+.ov-section:last-child { margin-bottom: 0; }
 
-  // Fetch data if not provided via props (for members)
+/* ── Card base ── */
+.ov-card {
+  background: var(--surf); border: 1px solid var(--bd);
+  border-radius: 16px; padding: 20px; box-shadow: var(--sh);
+}
+.ov-card-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 700; color: var(--t1); margin-bottom: 16px;
+}
+.ov-card-title-ico {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── Structure stats grid ── */
+.ov-struct-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+}
+@media (min-width: 640px) { .ov-struct-grid { grid-template-columns: repeat(4, 1fr); } }
+
+.ov-struct-cell {
+  background: var(--bg); border: 1px solid var(--bd); border-radius: 11px;
+  padding: 12px 14px;
+}
+.ov-struct-lbl { font-size: 11px; color: var(--t3); font-weight: 500; margin-bottom: 5px; }
+.ov-struct-val { font-size: 15px; font-weight: 700; color: var(--t1); }
+.ov-struct-val.red { color: var(--red); }
+.ov-effective {
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bd);
+  font-size: 12px; color: var(--t3);
+}
+.ov-effective span { color: var(--t2); font-weight: 500; }
+
+/* ── Fund summary — 3 gradient cards ── */
+.ov-fund-grid {
+  display: grid; grid-template-columns: repeat(1, 1fr); gap: 12px;
+}
+@media (min-width: 640px) { .ov-fund-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.ov-fund-card {
+  border-radius: 14px; padding: 18px; color: #fff; position: relative; overflow: hidden;
+}
+.ov-fund-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 85% 15%, rgba(255,255,255,.15) 0%, transparent 55%);
+  pointer-events: none;
+}
+.ov-fund-card.blue   { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+.ov-fund-card.purple { background: linear-gradient(135deg, #6d28d9, #7c3aed); }
+.ov-fund-card.green  { background: linear-gradient(135deg, #047857, #059669); }
+
+.ov-fund-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; color: rgba(255,255,255,.75); margin-bottom: 8px;
+}
+.ov-fund-val { font-size: 20px; font-weight: 800; letter-spacing: -.03em; margin-bottom: 6px; }
+.ov-fund-sub { font-size: 11px; color: rgba(255,255,255,.65); line-height: 1.5; }
+
+/* ── Saving summary ── */
+.ov-saving-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px;
+}
+@media (min-width: 640px) { .ov-saving-grid { grid-template-columns: repeat(6, 1fr); } }
+
+.ov-saving-cell {
+  background: var(--bg); border: 1px solid var(--bd); border-radius: 11px;
+  padding: 12px; text-align: center;
+}
+.ov-saving-lbl { font-size: 10.5px; color: var(--t3); font-weight: 500; margin-bottom: 5px; }
+.ov-saving-val { font-size: 14px; font-weight: 700; color: var(--t1); }
+.ov-saving-val.green  { color: var(--green); }
+.ov-saving-val.red    { color: var(--red); }
+.ov-saving-val.amber  { color: var(--amber); }
+.ov-saving-val.blue   { color: var(--blue); }
+
+/* ── Breakdown box ── */
+.ov-breakdown {
+  background: var(--bg); border: 1px solid var(--bd); border-radius: 12px; padding: 14px;
+}
+.ov-breakdown-title { font-size: 12px; font-weight: 600; color: var(--t2); margin-bottom: 10px; }
+.ov-breakdown-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; padding: 5px 0;
+}
+.ov-breakdown-row + .ov-breakdown-row { border-top: 1px solid var(--bd); }
+.ov-breakdown-lbl { color: var(--t3); font-weight: 500; }
+.ov-breakdown-val { font-weight: 600; color: var(--t1); }
+.ov-breakdown-val.green { color: var(--green); }
+.ov-breakdown-val.amber { color: var(--amber); }
+.ov-breakdown-total {
+  margin-top: 6px; padding-top: 8px; border-top: 2px solid var(--bd-2);
+  display: flex; justify-content: space-between;
+  font-size: 13.5px; font-weight: 700; color: var(--green);
+}
+
+/* ── Member stats ── */
+.ov-member-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+.ov-member-cell {
+  border-radius: 12px; padding: 14px; border: 1px solid var(--bd);
+}
+.ov-member-cell.blue   { background: var(--blue-l);   border-color: var(--blue-b); }
+.ov-member-cell.amber  { background: var(--amber-l);  border-color: color-mix(in srgb, var(--amber) 25%, transparent); }
+.ov-member-cell.red    { background: var(--red-l);    border-color: color-mix(in srgb, var(--red) 25%, transparent); }
+.ov-member-lbl  { font-size: 11px; font-weight: 500; margin-bottom: 5px; }
+.ov-member-lbl.blue  { color: var(--blue); }
+.ov-member-lbl.amber { color: var(--amber); }
+.ov-member-lbl.red   { color: var(--red); }
+.ov-member-val  { font-size: 16px; font-weight: 700; color: var(--t1); }
+
+/* ── Loan summary ── */
+.ov-loan-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+}
+.ov-loan-cell {
+  background: var(--bg); border: 1px solid var(--bd); border-radius: 11px; padding: 12px 14px;
+}
+.ov-loan-lbl { font-size: 11px; color: var(--t3); font-weight: 500; margin-bottom: 4px; }
+.ov-loan-val { font-size: 14px; font-weight: 700; color: var(--t1); }
+.ov-loan-val.amber { color: var(--amber); }
+.ov-loan-status {
+  display: inline-flex; align-items: center;
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 100px;
+}
+.ov-loan-status.active   { background: var(--green-l); color: var(--green); }
+.ov-loan-status.pending  { background: var(--amber-l); color: var(--amber); }
+.ov-loan-status.approved { background: var(--blue-l);  color: var(--blue); }
+
+/* Skeleton */
+.ov-skel { background: var(--bd); border-radius: 16px; animation: ov-pulse 1.5s ease-in-out infinite; }
+@keyframes ov-pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+`;
+
+let _ovIn = false;
+const Styles = () => {
   useEffect(() => {
-    if (role === 'MEMBER' && !propFundSummary && !propSavingSummary) {
-      fetchSummaries();
-    }
+    if (_ovIn) return;
+    const el = document.createElement('style');
+    el.textContent = CSS;
+    document.head.appendChild(el);
+    _ovIn = true;
+  }, []);
+  return null;
+};
+
+/* ─── helpers ─────────────────────────────────────────────── */
+const fmt = (v) => `₹${(parseFloat(v) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+const num = (v) => parseFloat(v) || 0;
+
+/* ═══════════════════════════════════════════════════════════ */
+const OverviewTab = ({ pundData, role, fundSummary: propFund, savingSummary: propSaving, myFinancials }) => {
+  const [fundSummary,   setFundSummary]   = useState(propFund);
+  const [savingSummary, setSavingSummary] = useState(propSaving);
+  const [loading,       setLoading]       = useState(false);
+
+  useEffect(() => {
+    if (role === 'MEMBER' && !propFund && !propSaving) fetchSummaries();
   }, [role, pundData?.pund_id]);
 
-  // Update when props change
   useEffect(() => {
-    setFundSummary(propFundSummary);
-    setSavingSummary(propSavingSummary);
-  }, [propFundSummary, propSavingSummary]);
+    setFundSummary(propFund);
+    setSavingSummary(propSaving);
+  }, [propFund, propSaving]);
 
   const fetchSummaries = async () => {
     if (!pundData?.pund_id) return;
-
     setLoading(true);
     try {
-      // Try to fetch fund summary
       try {
-        const fundResponse = await api.get(`/finance/pund/${pundData.pund_id}/fund-summary/`);
-        setFundSummary(fundResponse.data);
-      } catch (error) {
-        console.log('Fund summary not available, calculating from cycles...');
-        // Calculate from cycles as fallback
-        await calculateFromCycles();
-      }
-
-      // Try to fetch saving summary
+        const r = await api.get(`/finance/pund/${pundData.pund_id}/fund-summary/`);
+        setFundSummary(r.data);
+      } catch { await calculateFromCycles(); }
       try {
-        const savingResponse = await api.get(`/finance/pund/${pundData.pund_id}/saving-summary/`);
-        setSavingSummary(savingResponse.data);
-      } catch (error) {
-        console.log('Saving summary not available');
-      }
-    } catch (error) {
-      console.error('Error fetching summaries:', error);
-    } finally {
-      setLoading(false);
-    }
+        const r = await api.get(`/finance/pund/${pundData.pund_id}/saving-summary/`);
+        setSavingSummary(r.data);
+      } catch {}
+    } catch (e) { console.error(e);
+    } finally { setLoading(false); }
   };
 
   const calculateFromCycles = async () => {
     try {
-      const response = await api.get(`/finance/pund/${pundData.pund_id}/cycle-payments/`);
-      const cycles = response.data;
-
-      let totalCollected = 0;
-      let totalPenalties = 0;
-      let totalExpected = 0;
-      let totalPaid = 0;
-      const uniqueCycles = new Set();
-      const uniqueMembers = new Set();
-
-      cycles.forEach(cycle => {
-        uniqueCycles.add(cycle.cycle_number);
-
-        cycle.payments?.forEach(payment => {
-          uniqueMembers.add(payment.member_id);
-          totalExpected += parseAmount(payment.amount);
-
-          if (payment.is_paid) {
-            totalCollected += parseAmount(payment.amount) + parseAmount(payment.penalty_amount);
-            totalPaid += parseAmount(payment.amount) + parseAmount(payment.penalty_amount);
-            totalPenalties += parseAmount(payment.penalty_amount);
+      const res = await api.get(`/finance/pund/${pundData.pund_id}/cycle-payments/`);
+      const cycles = res.data;
+      let totalCollected=0, totalPenalties=0, totalExpected=0, totalPaid=0;
+      const uCycles=new Set(), uMembers=new Set();
+      cycles.forEach(c => {
+        uCycles.add(c.cycle_number);
+        c.payments?.forEach(p => {
+          uMembers.add(p.member_id);
+          totalExpected += num(p.amount);
+          if (p.is_paid) {
+            totalCollected += num(p.amount) + num(p.penalty_amount);
+            totalPaid      += num(p.amount) + num(p.penalty_amount);
+            totalPenalties += num(p.penalty_amount);
           }
         });
       });
-
-      // Try to get loan data
-      let activeLoanPrincipal = 0;
-      let activeLoanOutstanding = 0;
+      let activeLoanPrincipal=0, activeLoanOutstanding=0;
       try {
-        const loansResponse = await api.get(`/finance/pund/${pundData.pund_id}/loans/`);
-        const loans = loansResponse.data || [];
-
-        loans.forEach(loan => {
-          if (loan.is_active || loan.status === 'ACTIVE' || loan.status === 'APPROVED') {
-            activeLoanPrincipal += parseAmount(loan.principal_amount);
-            activeLoanOutstanding += parseAmount(loan.remaining_amount || loan.total_payable || 0);
+        const lr = await api.get(`/finance/pund/${pundData.pund_id}/loans/`);
+        (lr.data || []).forEach(l => {
+          if (l.is_active || l.status==='ACTIVE' || l.status==='APPROVED') {
+            activeLoanPrincipal    += num(l.principal_amount);
+            activeLoanOutstanding  += num(l.remaining_amount || l.total_payable || 0);
           }
         });
-      } catch (e) {
-        console.log('Could not fetch loan data');
-      }
-
-      const available = totalCollected - activeLoanPrincipal;
-
-      setFundSummary({
-        total_collected: totalCollected.toString(),
-        active_loan_outstanding: activeLoanOutstanding.toString(),
-        active_loan_principal: activeLoanPrincipal.toString(),
-        available_fund: available.toString()
-      });
-
-      setSavingSummary({
-        total_cycles: uniqueCycles.size,
-        total_members: uniqueMembers.size,
-        total_expected_savings: totalExpected.toString(),
-        total_paid_savings: totalPaid.toString(),
-        total_unpaid_savings: (totalExpected - (totalPaid - totalPenalties)).toString(),
-        total_penalties_collected: totalPenalties.toString()
-      });
-
-    } catch (error) {
-      console.error('Error calculating from cycles:', error);
-    }
+      } catch {}
+      setFundSummary({ total_collected: String(totalCollected), active_loan_outstanding: String(activeLoanOutstanding), active_loan_principal: String(activeLoanPrincipal), available_fund: String(totalCollected - activeLoanPrincipal) });
+      setSavingSummary({ total_cycles: uCycles.size, total_members: uMembers.size, total_expected_savings: String(totalExpected), total_paid_savings: String(totalPaid), total_unpaid_savings: String(totalExpected - (totalPaid - totalPenalties)), total_penalties_collected: String(totalPenalties) });
+    } catch (e) { console.error(e); }
   };
 
-  // Show loading state
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        <span className="ml-2 text-xs text-gray-600">Loading overview...</span>
+  /* ── Loading ── */
+  if (loading) return (
+    <>
+      <Styles />
+      <div className="ov-wrap">
+        <div className="ov-loading">
+          <div className="ov-spin" />
+          <span className="ov-loading-txt">Loading overview…</span>
+        </div>
       </div>
-    );
-  }
+    </>
+  );
+
+  const loanStatus = (s='') => s.toLowerCase().includes('active') || s === 'APPROVED' || s === 'ACTIVE' ? 'active' : 'pending';
 
   return (
-    <div className="space-y-4">
-      {/* Structure Card - Visible to everyone */}
-      {pundData?.structure && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white border border-gray-200 rounded-lg p-4"
-        >
-          <div className="flex items-center space-x-2 mb-3">
-            <FiInfo className="w-4 h-4 text-blue-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Current Structure</h3>
-          </div>
+    <>
+      <Styles />
+      <div className="ov-wrap">
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-[10px] text-gray-500">Saving Amount</p>
-              <p className="text-sm font-bold text-gray-900">
-                {formatCurrency(pundData.structure.saving_amount)}
-              </p>
+        {/* ── Structure card ── */}
+        {pundData?.structure && (
+          <motion.div className="ov-card ov-section"
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.34, ease: [0.25,1,.35,1] }}
+          >
+            <div className="ov-card-title">
+              <div className="ov-card-title-ico" style={{ background: 'var(--blue-l)', color: 'var(--blue)' }}>
+                <FiInfo size={14} />
+              </div>
+              Current Structure
             </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-[10px] text-gray-500">Interest Rate</p>
-              <p className="text-sm font-bold text-gray-900">
-                {pundData.structure.loan_interest_percentage || 0}%
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-[10px] text-gray-500">Saving Penalty</p>
-              <p className="text-sm font-bold text-red-600">
-                {formatCurrency(pundData.structure.missed_saving_penalty)}
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-[10px] text-gray-500">Loan Penalty</p>
-              <p className="text-sm font-bold text-red-600">
-                {formatCurrency(pundData.structure.missed_loan_penalty)}
-              </p>
-            </div>
-          </div>
 
-          {pundData.structure.effective_from && (
-            <div className="mt-3 pt-2 border-t border-gray-100 text-[10px] text-gray-500">
-              <span className="font-medium">Effective from:</span>{' '}
-              {new Date(pundData.structure.effective_from).toLocaleDateString('en-IN')}
+            <div className="ov-struct-grid">
+              {[
+                { lbl: 'Saving Amount',   val: fmt(pundData.structure.saving_amount),             cls: '' },
+                { lbl: 'Interest Rate',   val: `${pundData.structure.loan_interest_percentage || 0}%`, cls: '' },
+                { lbl: 'Saving Penalty',  val: fmt(pundData.structure.missed_saving_penalty),      cls: 'red' },
+                { lbl: 'Loan Penalty',    val: fmt(pundData.structure.missed_loan_penalty),         cls: 'red' },
+              ].map((c, i) => (
+                <div key={i} className="ov-struct-cell">
+                  <div className="ov-struct-lbl">{c.lbl}</div>
+                  <div className={`ov-struct-val ${c.cls}`}>{c.val}</div>
+                </div>
+              ))}
             </div>
-          )}
-        </motion.div>
-      )}
 
-      {/* Fund Summary - Visible to everyone */}
-      {fundSummary && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 sm:grid-cols-3 gap-2"
-        >
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-3 text-white">
-            <div className="flex items-center space-x-1 mb-1">
-              <FiDollarSign className="w-3.5 h-3.5 text-blue-100" />
-              <p className="text-[10px] text-blue-100">Total Collected</p>
-            </div>
-            <p className="text-base font-bold">{formatCurrency(fundSummary.total_collected)}</p>
-            {savingSummary && (
-              <p className="text-[8px] text-blue-200 mt-1">
-                Savings: {formatCurrency((parseAmount(fundSummary.total_collected) - parseAmount(savingSummary.total_penalties_collected)))} |
-                Penalties: {formatCurrency(savingSummary.total_penalties_collected)}
-              </p>
+            {pundData.structure.effective_from && (
+              <div className="ov-effective">
+                Effective from: <span>{new Date(pundData.structure.effective_from).toLocaleDateString('en-IN')}</span>
+              </div>
             )}
-          </div>
+          </motion.div>
+        )}
 
+        {/* ── Fund summary — 3 gradient cards ── */}
+        {fundSummary && (
+          <motion.div className="ov-section"
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.34, delay: 0.07, ease: [0.25,1,.35,1] }}
+          >
+            <div className="ov-fund-grid">
+              {/* Total Collected */}
+              <div className="ov-fund-card blue">
+                <div className="ov-fund-label"><FiDollarSign size={13} /> Total Collected</div>
+                <div className="ov-fund-val">{fmt(fundSummary.total_collected)}</div>
+                {savingSummary && (
+                  <div className="ov-fund-sub">
+                    Savings: {fmt(num(fundSummary.total_collected) - num(savingSummary.total_penalties_collected))}
+                    &nbsp;·&nbsp;Penalties: {fmt(savingSummary.total_penalties_collected)}
+                  </div>
+                )}
+              </div>
 
-          <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg p-3 text-white">
-            <div className="flex items-center space-x-1 mb-1">
-              <FiTrendingUp className="w-3.5 h-3.5 text-purple-100" />
-              <p className="text-[10px] text-purple-100">Active Loans</p>
-            </div>
-            <p className="text-base font-bold">{formatCurrency(fundSummary.active_loan_outstanding)}</p>
+              {/* Active Loans */}
+              <div className="ov-fund-card purple">
+                <div className="ov-fund-label"><FiTrendingUp size={13} /> Active Loans</div>
+                <div className="ov-fund-val">{fmt(fundSummary.active_loan_outstanding)}</div>
+                <div className="ov-fund-sub">
+                  Principal: {fmt(fundSummary?.active_loan_principal || 0)}
+                  &nbsp;·&nbsp;Interest: {fmt(fundSummary?.active_loan_interest || 0)}
+                </div>
+              </div>
 
-            <p className="text-[8px] text-purple-200 mt-1">
-              Principal: {formatCurrency(fundSummary?.active_loan_principal || 0)} |
-              Interest: {formatCurrency(fundSummary?.active_loan_interest || 0)}
-            </p>
-          </div>
+              {/* Available Fund */}
+              <div className="ov-fund-card green">
+                <div className="ov-fund-label"><FiClock size={13} /> Available Fund</div>
+                <div className="ov-fund-val">{fmt(fundSummary.available_fund)}</div>
+                <div className="ov-fund-sub">
+                  Collected − Outstanding Loans
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
+        {/* ── Saving summary ── */}
+        {savingSummary && (
+          <motion.div className="ov-card ov-section"
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.34, delay: 0.14, ease: [0.25,1,.35,1] }}
+          >
+            <div className="ov-card-title">
+              <div className="ov-card-title-ico" style={{ background: 'var(--green-l)', color: 'var(--green)' }}>
+                <FiBarChart2 size={14} />
+              </div>
+              Saving Summary
+            </div>
 
-          <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-lg p-3 text-white">
-            <div className="flex items-center space-x-1 mb-1">
-              <FiClock className="w-3.5 h-3.5 text-green-100" />
-              <p className="text-[10px] text-green-100">Available Fund</p>
+            {/* 6-cell grid */}
+            <div className="ov-saving-grid">
+              {[
+                { lbl: 'Cycles',   val: savingSummary.total_cycles   || 0, cls: 'blue' },
+                { lbl: 'Members',  val: savingSummary.total_members  || 0, cls: '' },
+                { lbl: 'Expected', val: fmt(savingSummary.total_expected_savings), cls: '' },
+                { lbl: 'Paid',     val: fmt(savingSummary.total_paid_savings),     cls: 'green' },
+                { lbl: 'Unpaid',   val: fmt(savingSummary.total_unpaid_savings),   cls: 'red' },
+                { lbl: 'Penalties',val: fmt(savingSummary.total_penalties_collected), cls: 'amber' },
+              ].map((c, i) => (
+                <div key={i} className="ov-saving-cell">
+                  <div className="ov-saving-lbl">{c.lbl}</div>
+                  <div className={`ov-saving-val ${c.cls}`}>{c.val}</div>
+                </div>
+              ))}
             </div>
-            <p className="text-base font-bold">{formatCurrency(fundSummary.available_fund)}</p>
-            <p className="text-[8px] text-green-200 mt-1">
-              = Collected - Outstanding Loans
-            </p>
-            {/* Add a small breakdown */}
-            <div className="mt-1 text-[7px] text-green-200 opacity-75">
-              Collected: {formatCurrency(fundSummary.total_collected)} -
-              Outstanding: {formatCurrency(fundSummary.active_loan_outstanding)}
-            </div>
-          </div>
-        </motion.div>
-      )}
 
-      {/* Saving Summary - Visible to everyone */}
-      {savingSummary && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white border border-gray-200 rounded-lg p-4"
-        >
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Saving Summary</h3>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-4">
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-[8px] text-gray-500">Cycles</p>
-              <p className="text-sm font-bold text-gray-900">{savingSummary.total_cycles || 0}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-[8px] text-gray-500">Members</p>
-              <p className="text-sm font-bold text-gray-900">{savingSummary.total_members || 0}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-[8px] text-gray-500">Expected</p>
-              <p className="text-sm font-bold text-gray-900">{formatCurrency(savingSummary.total_expected_savings)}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-[8px] text-gray-500">Paid</p>
-              <p className="text-sm font-bold text-green-600">{formatCurrency(savingSummary.total_paid_savings)}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-[8px] text-gray-500">Unpaid</p>
-              <p className="text-sm font-bold text-red-600">{formatCurrency(savingSummary.total_unpaid_savings)}</p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-2">
-              <p className="text-[8px] text-gray-500">Penalties</p>
-              <p className="text-sm font-bold text-orange-600">{formatCurrency(savingSummary.total_penalties_collected)}</p>
-            </div>
-          </div>
-
-          {/* Breakdown */}
-          <div className="bg-gray-50 rounded-lg p-3">
-            <h4 className="text-xs font-medium text-gray-700 mb-2">Breakdown</h4>
-            <div className="space-y-1 text-[10px]">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Savings Collected:</span>
-                <span className="font-medium">
-                  {formatCurrency(parseAmount(savingSummary.total_paid_savings) - parseAmount(savingSummary.total_penalties_collected))}
+            {/* Breakdown */}
+            <div className="ov-breakdown">
+              <div className="ov-breakdown-title">Breakdown</div>
+              <div className="ov-breakdown-row">
+                <span className="ov-breakdown-lbl">Savings collected</span>
+                <span className="ov-breakdown-val">
+                  {fmt(num(savingSummary.total_paid_savings) - num(savingSummary.total_penalties_collected))}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Penalties Collected:</span>
-                <span className="font-medium text-orange-600">
-                  {formatCurrency(savingSummary.total_penalties_collected)}
-                </span>
+              <div className="ov-breakdown-row">
+                <span className="ov-breakdown-lbl">Penalties collected</span>
+                <span className="ov-breakdown-val amber">{fmt(savingSummary.total_penalties_collected)}</span>
               </div>
-              <div className="flex justify-between pt-1 border-t border-gray-200">
-                <span className="font-medium text-gray-700">Total Paid:</span>
-                <span className="font-bold text-green-600">
-                  {formatCurrency(savingSummary.total_paid_savings)}
-                </span>
+              <div className="ov-breakdown-total">
+                <span>Total paid</span>
+                <span>{fmt(savingSummary.total_paid_savings)}</span>
               </div>
             </div>
-          </div>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
 
-      {/* Member Personal Overview - Only for Members */}
-      {role === 'MEMBER' && myFinancials && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-3"
-        >
-          {/* My Savings */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">My Savings</h3>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-blue-50 rounded-lg p-2">
-                <p className="text-[8px] text-blue-600 mb-0.5">Total Paid</p>
-                <p className="text-sm font-bold text-gray-900">
-                  {formatCurrency(myFinancials.saving_summary?.total_savings_paid)}
-                </p>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-2">
-                <p className="text-[8px] text-yellow-600 mb-0.5">Unpaid</p>
-                <p className="text-sm font-bold text-gray-900">
-                  {formatCurrency(myFinancials.saving_summary?.total_unpaid_savings)}
-                </p>
-              </div>
-              <div className="bg-red-50 rounded-lg p-2">
-                <p className="text-[8px] text-red-600 mb-0.5">Penalties</p>
-                <p className="text-sm font-bold text-gray-900">
-                  {formatCurrency(myFinancials.saving_summary?.total_saving_penalty)}
-                </p>
-              </div>
-            </div>
-          </div>
+        {/* ── Member personal section ── */}
+        {role === 'MEMBER' && myFinancials && (
+          <motion.div className="ov-section"
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.34, delay: 0.21, ease: [0.25,1,.35,1] }}
+          >
 
-          {/* My Active Loan */}
-          {myFinancials.loan_summary && (
-            <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">My Active Loan</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-gray-50 rounded-lg p-2">
-                  <p className="text-[8px] text-gray-500">Principal</p>
-                  <p className="text-xs font-bold text-gray-900">
-                    {formatCurrency(myFinancials.loan_summary.principal)}
-                  </p>
+            {/* My Savings */}
+            <div className="ov-card" style={{ marginBottom: 12 }}>
+              <div className="ov-card-title">
+                <div className="ov-card-title-ico" style={{ background: 'var(--blue-l)', color: 'var(--blue)' }}>
+                  <FiDollarSign size={14} />
                 </div>
-                <div className="bg-gray-50 rounded-lg p-2">
-                  <p className="text-[8px] text-gray-500">Remaining</p>
-                  <p className="text-xs font-bold text-orange-600">
-                    {formatCurrency(myFinancials.loan_summary.remaining_amount)}
-                  </p>
+                My Savings
+              </div>
+              <div className="ov-member-grid">
+                <div className="ov-member-cell blue">
+                  <div className="ov-member-lbl blue">Total Paid</div>
+                  <div className="ov-member-val">{fmt(myFinancials.saving_summary?.total_savings_paid)}</div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-2">
-                  <p className="text-[8px] text-gray-500">Total Payable</p>
-                  <p className="text-xs font-bold text-gray-900">
-                    {formatCurrency(myFinancials.loan_summary.total_payable)}
-                  </p>
+                <div className="ov-member-cell amber">
+                  <div className="ov-member-lbl amber">Unpaid</div>
+                  <div className="ov-member-val">{fmt(myFinancials.saving_summary?.total_unpaid_savings)}</div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-2">
-                  <p className="text-[8px] text-gray-500">Status</p>
-                  <span className={`text-[8px] px-1.5 py-0.5 rounded-full inline-block ${myFinancials.loan_summary.status === 'APPROVED' || myFinancials.loan_summary.status === 'ACTIVE'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                    {myFinancials.loan_summary.status || 'PENDING'}
-                  </span>
+                <div className="ov-member-cell red">
+                  <div className="ov-member-lbl red">Penalties</div>
+                  <div className="ov-member-val">{fmt(myFinancials.saving_summary?.total_saving_penalty)}</div>
                 </div>
               </div>
             </div>
-          )}
-        </motion.div>
-      )}
-    </div>
+
+            {/* My Active Loan */}
+            {myFinancials.loan_summary && (
+              <div className="ov-card">
+                <div className="ov-card-title">
+                  <div className="ov-card-title-ico" style={{ background: 'var(--purple-l)', color: 'var(--purple)' }}>
+                    <FiTrendingUp size={14} />
+                  </div>
+                  My Active Loan
+                </div>
+                <div className="ov-loan-grid">
+                  <div className="ov-loan-cell">
+                    <div className="ov-loan-lbl">Principal</div>
+                    <div className="ov-loan-val">{fmt(myFinancials.loan_summary.principal)}</div>
+                  </div>
+                  <div className="ov-loan-cell">
+                    <div className="ov-loan-lbl">Remaining</div>
+                    <div className="ov-loan-val amber">{fmt(myFinancials.loan_summary.remaining_amount)}</div>
+                  </div>
+                  <div className="ov-loan-cell">
+                    <div className="ov-loan-lbl">Total Payable</div>
+                    <div className="ov-loan-val">{fmt(myFinancials.loan_summary.total_payable)}</div>
+                  </div>
+                  <div className="ov-loan-cell">
+                    <div className="ov-loan-lbl">Status</div>
+                    <span className={`ov-loan-status ${loanStatus(myFinancials.loan_summary.status)}`}>
+                      {myFinancials.loan_summary.status || 'PENDING'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+      </div>
+    </>
   );
 };
 

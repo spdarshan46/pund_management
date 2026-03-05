@@ -360,7 +360,7 @@ const PundDetail = () => {
 
   const { pundData, role, loading, refetch } = usePundData(id);
   const { fundSummary, savingSummary, loans, auditLogs, refetchOwner } = useOwnerData(id, role);
-  const { myFinancials, myLoans, refetchMember } = useMemberData(role);
+  const { myFinancials, myLoans, refetchMember } = useMemberData(role, id);
 
   useEffect(() => { handleRefetch(); }, [activeTab]);
 

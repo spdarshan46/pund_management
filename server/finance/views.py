@@ -889,10 +889,13 @@ class SavingSummaryView(APIView):
 class MyFinancialSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request, pund_id):
         user = request.user
 
-        payments = Payment.objects.filter(member=user)
+        payments = Payment.objects.filter(
+            member=user,
+            pund_id=pund_id
+        )
 
         total_savings_paid = payments.filter(is_paid=True).aggregate(
             total=models.Sum("amount") 

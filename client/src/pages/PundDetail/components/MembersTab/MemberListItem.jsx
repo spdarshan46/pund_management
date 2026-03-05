@@ -1,94 +1,124 @@
 // src/pages/PundDetail/components/MembersTab/MemberListItem.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiEye, FiEdit2, FiTrash2, FiRefreshCw } from 'react-icons/fi';
 
+/* ─── STYLES ─────────────────────────────────────────────── */
+const CSS = `
+.mli-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 13px; border-radius: 12px; border: 1px solid var(--bd);
+  cursor: pointer; transition: background .15s, border-color .15s, box-shadow .15s;
+  background: var(--bg);
+}
+.mli-row.active:hover   { background: var(--blue-l); border-color: var(--blue-b); box-shadow: 0 2px 8px rgba(37,99,235,.08); }
+.mli-row.inactive       { opacity: .72; }
+.mli-row.inactive:hover { background: var(--amber-l); border-color: var(--amber-b); }
+
+/* left */
+.mli-left  { display: flex; align-items: center; gap: 11px; flex: 1; min-width: 0; }
+.mli-avatar {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, #1d4ed8, #4f46e5);
+}
+.mli-avatar.inactive { background: var(--bg-2); color: var(--t3); }
+.mli-name  { font-size: 13.5px; font-weight: 600; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.mli-email { font-size: 11.5px; color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mli-info  { min-width: 0; flex: 1; }
+
+/* right */
+.mli-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 10px; }
+.mli-status {
+  font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 100px;
+}
+.mli-status.active   { background: var(--green-l); color: var(--green); }
+.mli-status.inactive { background: var(--bg-2);    color: var(--t3); }
+
+/* action buttons */
+.mli-btn {
+  width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s, transform .12s;
+}
+.mli-btn:hover { transform: translateY(-1px); }
+.mli-btn.view    { background: var(--blue-l);   color: var(--blue); }
+.mli-btn.view:hover  { background: var(--blue-b); }
+.mli-btn.edit    { background: var(--green-l);  color: var(--green); }
+.mli-btn.edit:hover  { background: var(--green-b); }
+.mli-btn.remove  { background: var(--red-l);    color: var(--red); }
+.mli-btn.remove:hover { background: var(--red-b); }
+.mli-btn.reactivate { background: var(--green-l); color: var(--green); }
+.mli-btn.reactivate:hover { background: var(--green-b); }
+`;
+
+let _mliIn = false;
+const Styles = () => {
+  useEffect(() => {
+    if (_mliIn) return;
+    const el = document.createElement('style');
+    el.textContent = CSS;
+    document.head.appendChild(el);
+    _mliIn = true;
+  }, []);
+  return null;
+};
+
+/* ═══════════════════════════════════════════════════════════ */
 const MemberListItem = ({ member, index, onView, onEdit, onRemove, onReactivate }) => {
-  const memberId = member.id;
   const isActive = member.membership_active;
+  const initial  = (member.name || member.email || 'U').charAt(0).toUpperCase();
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.03 }}
-      className={`group flex items-center justify-between p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${
-        isActive 
-          ? 'bg-gray-50 border-gray-100 hover:border-blue-200 hover:bg-blue-50/50' 
-          : 'bg-gray-100/50 border-gray-200 opacity-75 hover:border-yellow-200 hover:bg-yellow-50/30'
-      }`}
-    >
-      {/* Left section - click to view */}
-      <div 
-        className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0"
-        onClick={() => onView(member)}
+    <>
+      <Styles />
+      <motion.div
+        className={`mli-row ${isActive ? 'active' : 'inactive'}`}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.04, duration: 0.26, ease: [0.25, 1, 0.35, 1] }}
       >
-        <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center text-white font-bold text-[10px] sm:text-xs shadow-sm ${
-          isActive 
-            ? 'bg-gradient-to-r from-blue-600 to-purple-600' 
-            : 'bg-gray-500'
-        }`}>
-          {member.name?.charAt(0).toUpperCase() || member.email?.charAt(0).toUpperCase() || 'U'}
+        {/* Left — click to view */}
+        <div className="mli-left" onClick={() => onView(member)}>
+          <div className={`mli-avatar${isActive ? '' : ' inactive'}`}>{initial}</div>
+          <div className="mli-info">
+            <div className="mli-name">{member.name || 'Unknown'}</div>
+            <div className="mli-email">{member.email}</div>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className={`text-[11px] sm:text-sm font-medium truncate ${
-            isActive ? 'text-gray-900' : 'text-gray-500'
-          }`}>
-            {member.name || 'Unknown'}
-          </p>
-          <p className="text-[8px] sm:text-[10px] text-gray-500 truncate">{member.email}</p>
-        </div>
-      </div>
-      
-      {/* Right section - action buttons */}
-      <div className="flex items-center space-x-1 ml-2">
-        <span className={`text-[8px] sm:text-[10px] px-1.5 py-0.5 rounded-full hidden sm:block ${
-          isActive
-            ? 'bg-green-100 text-green-700'
-            : 'bg-gray-200 text-gray-600'
-        }`}>
-          {isActive ? 'Active' : 'Inactive'}
-        </span>
-        
-        <div className="flex items-center space-x-1">
-          <button
-            onClick={() => onView(member)}
-            className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 rounded-lg flex items-center justify-center hover:bg-blue-200 transition-all"
-            title="View member"
-          >
-            <FiEye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
+
+        {/* Right — status + actions */}
+        <div className="mli-right">
+          <span className={`mli-status ${isActive ? 'active' : 'inactive'}`}>
+            {isActive ? 'Active' : 'Inactive'}
+          </span>
+
+          {/* View */}
+          <button className="mli-btn view" onClick={() => onView(member)} title="View member">
+            <FiEye size={14} />
           </button>
-          
+
           {isActive ? (
             <>
-              <button
-                onClick={(e) => onEdit(e, member)}
-                className="w-7 h-7 sm:w-8 sm:h-8 bg-green-100 rounded-lg flex items-center justify-center hover:bg-green-200 transition-all"
-                title="Edit member"
-              >
-                <FiEdit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+              {/* Edit */}
+              <button className="mli-btn edit" onClick={e => onEdit(e, member)} title="Edit member">
+                <FiEdit2 size={13} />
               </button>
-              
-              <button
-                onClick={(e) => onRemove(e, member)}
-                className="w-7 h-7 sm:w-8 sm:h-8 bg-red-100 rounded-lg flex items-center justify-center hover:bg-red-200 transition-all"
-                title="Remove member"
-              >
-                <FiTrash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600" />
+              {/* Remove */}
+              <button className="mli-btn remove" onClick={e => onRemove(e, member)} title="Remove member">
+                <FiTrash2 size={13} />
               </button>
             </>
           ) : (
-            <button
-              onClick={(e) => onReactivate(e, member)}
-              className="w-7 h-7 sm:w-8 sm:h-8 bg-green-100 rounded-lg flex items-center justify-center hover:bg-green-200 transition-all"
-              title="Reactivate member"
-            >
-              <FiRefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
+            /* Reactivate */
+            <button className="mli-btn reactivate" onClick={e => onReactivate(e, member)} title="Reactivate member">
+              <FiRefreshCw size={13} />
             </button>
           )}
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 };
 

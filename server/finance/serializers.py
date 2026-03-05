@@ -1,11 +1,14 @@
+# finance/serializers.py
+
 from rest_framework import serializers
 from .models import PundStructure, Payment
 
 
 class PundStructureSerializer(serializers.ModelSerializer):
     effective_from = serializers.DateField(required=False)
+
     class Meta:
-        model = PundStructure
+        model  = PundStructure
         fields = [
             "saving_amount",
             "loan_interest_percentage",
@@ -18,14 +21,9 @@ class PundStructureSerializer(serializers.ModelSerializer):
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Payment
-        fields = [
-            "cycle_number",
-            "amount",
-            "penalty_amount",
-            "is_paid",
-            "paid_at",
-        ]
+        model  = Payment
+        fields = ["cycle_number", "amount", "penalty_amount", "is_paid", "paid_at"]
+
 
 class LoanRequestSerializer(serializers.Serializer):
     principal_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
