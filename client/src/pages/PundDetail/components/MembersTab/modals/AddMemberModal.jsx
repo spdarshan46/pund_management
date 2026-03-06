@@ -1,4 +1,3 @@
-// src/pages/PundDetail/components/MembersTab/modals/AddMemberModal.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {

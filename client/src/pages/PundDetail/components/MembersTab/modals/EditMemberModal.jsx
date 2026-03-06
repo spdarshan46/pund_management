@@ -1,4 +1,3 @@
-// src/pages/PundDetail/components/MembersTab/modals/EditMemberModal.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiUser, FiMail, FiPhone, FiX, FiSave, FiCheckCircle } from 'react-icons/fi';

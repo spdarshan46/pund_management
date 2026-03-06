@@ -1,4 +1,3 @@
-// src/pages/PundDetail/components/MembersTab/index.jsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiUsers, FiPlus, FiUserPlus } from 'react-icons/fi';

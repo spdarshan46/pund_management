@@ -1,4 +1,3 @@
-// src/pages/PundDetail/components/ReopenPundTab.jsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiRefreshCw, FiArrowLeft, FiCheckCircle } from 'react-icons/fi';

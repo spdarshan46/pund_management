@@ -1,4 +1,3 @@
-// src/pages/PundDetail/components/MembersTab/modals/ReactivateConfirmModal.jsx
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiRefreshCw, FiCheckCircle, FiX } from 'react-icons/fi';

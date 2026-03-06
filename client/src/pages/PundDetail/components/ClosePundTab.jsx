@@ -1,4 +1,3 @@
-// src/pages/PundDetail/components/ClosePundTab.jsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiAlertTriangle, FiLock, FiX, FiArrowLeft } from 'react-icons/fi';

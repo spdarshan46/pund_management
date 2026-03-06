@@ -1,4 +1,3 @@
-// src/pages/PundDetail/hooks/useOwnerData.js
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import api from '../../../services/api';

@@ -1,10 +1,9 @@
 import random
-from django.utils import timezone
 from datetime import timedelta
-from django.core.mail import send_mail
-from .models import User
-from django.conf import settings
 
+from django.conf import settings
+from django.utils import timezone
+from django.core.mail import EmailMultiAlternatives
 
 
 def generate_otp():
@@ -13,19 +12,69 @@ def generate_otp():
 
 def send_otp_email(user, target_email=None):
     otp = generate_otp()
+
     user.otp = otp
     user.otp_created_at = timezone.now()
     user.otp_attempts = 0
     user.save()
 
-    send_mail(
-        "Your OTP Code",
-        f"Your OTP is {otp}",
+    subject = "PUNDX - Your OTP Verification Code"
+
+    html_content = f"""
+    <div style="font-family: Arial; background:#f5f8fc; padding:20px">
+    
+        <div style="max-width:600px;margin:auto;background:white;border-radius:8px;overflow:hidden">
+
+            <!-- HEADER -->
+            <div style="background:#00529b;padding:20px;text-align:center;color:white">
+                <h2 style="margin:0">PUNDX</h2>
+                <p style="margin:0;font-size:12px">Community Savings Management System</p>
+            </div>
+
+            <!-- BODY -->
+            <div style="padding:30px;text-align:center">
+
+                <h3>Email Verification</h3>
+
+                <p>Your One Time Password (OTP) is:</p>
+
+                <div style="
+                    font-size:32px;
+                    font-weight:bold;
+                    letter-spacing:6px;
+                    color:#00529b;
+                    margin:20px 0;
+                ">
+                    {otp}
+                </div>
+
+                <p>This OTP is valid for <b>5 minutes</b>.</p>
+
+                <p style="color:#777;font-size:12px">
+                    If you did not request this, please ignore this email.
+                </p>
+
+            </div>
+
+            <!-- FOOTER -->
+            <div style="background:#eef5ff;padding:15px;text-align:center;font-size:12px;color:#555">
+                This is a system generated email from <b>PUNDX</b>.
+            </div>
+
+        </div>
+
+    </div>
+    """
+
+    email = EmailMultiAlternatives(
+        subject,
+        "Your OTP is " + otp,
         settings.DEFAULT_FROM_EMAIL,
-        [target_email if target_email else user.email],
-        fail_silently=False,
+        [target_email or user.email],
     )
 
+    email.attach_alternative(html_content, "text/html")
+    email.send()
 
 def verify_otp(user, otp):
     if not user.otp or user.otp != otp:
@@ -33,30 +82,78 @@ def verify_otp(user, otp):
         user.save()
         return False, "Invalid OTP"
 
-    if timezone.now() > user.otp_created_at + timedelta(minutes=5):
+    if timezone.now() > user.otp_created_at + timedelta(minutes=2):
         return False, "OTP Expired"
 
     user.email_verified = True
     user.save()
     return True, "OTP Verified"
 
+
 def send_invite_email(user, pund_name):
-    subject = "You’ve been added to a Pund"
 
-    message = f"""
-Hello,
+    subject = f"You've been added to {pund_name}"
 
-You have been added to '{pund_name}'.
+    # create activation link first
+    activation_link = f"{settings.FRONTEND_URL}/activate-account?email={user.email}"
 
-Please open the app and verify your email to activate your account.
+    html_content = f"""
+    <div style="font-family: Arial; background:#f5f8fc; padding:20px">
 
-Thank you.
-"""
+        <div style="max-width:600px;margin:auto;background:white;border-radius:8px;overflow:hidden">
 
-    send_mail(
+            <div style="background:#00529b;padding:20px;text-align:center;color:white">
+                <h2>PUNDX</h2>
+                <p>Community Savings Management System</p>
+            </div>
+
+            <div style="padding:30px">
+
+                <h3>Hello {user.name},</h3>
+
+                <p>You have been added to the savings group:</p>
+
+                <h2 style="color:#00529b">{pund_name}</h2>
+
+                <p>Please activate your account by clicking the button below:</p>
+
+                <div style="text-align:center;margin:25px 0">
+                    <a href="{activation_link}" 
+                       style="background:#00529b;color:white;padding:12px 20px;
+                       text-decoration:none;border-radius:6px;font-weight:bold;">
+                       Activate Account
+                    </a>
+                </div>
+
+                <p>If the button doesn't work, open this link:</p>
+
+                <p>
+                    <a href="{activation_link}">
+                        {activation_link}
+                    </a>
+                </p>
+
+                <div style="margin-top:20px">
+                    <p>Thank you for using <b>PUNDX</b>.</p>
+                </div>
+
+            </div>
+
+            <div style="background:#eef5ff;padding:15px;text-align:center;font-size:12px;color:#555">
+                PUNDX Official Notification
+            </div>
+
+        </div>
+
+    </div>
+    """
+
+    email = EmailMultiAlternatives(
         subject,
-        message,
+        f"You have been added to {pund_name}",
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
-        fail_silently=False,
     )
+
+    email.attach_alternative(html_content, "text/html")
+    email.send()

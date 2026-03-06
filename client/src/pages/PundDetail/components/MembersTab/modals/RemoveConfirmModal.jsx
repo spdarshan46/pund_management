@@ -1,4 +1,3 @@
-// src/pages/PundDetail/components/MembersTab/modals/RemoveConfirmModal.jsx
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiTrash2, FiAlertTriangle, FiX } from 'react-icons/fi';

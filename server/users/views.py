@@ -1,332 +1,238 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import timedelta
+
 from django.contrib.auth import authenticate
 from django.utils import timezone
-from datetime import timedelta
+
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
 from .serializers import (
-    SendOTPSerializer,
-    VerifyOTPSerializer,
-    RegisterSerializer,
-    LoginSerializer,
-    ResetPasswordSerializer,
     ChangePasswordSerializer,
+    LoginSerializer,
+    RegisterSerializer,
+    ResetPasswordSerializer,
+    SendOTPSerializer,
     UserSerializer,
-    )
+    VerifyOTPSerializer,
+)
 from .services import send_otp_email
 
+OTP_EXPIRY_MINUTES = 5
 
-# -----------------------------
-# SEND OTP (Registration)
-# -----------------------------
+
+def _otp_expired(user):
+    return timezone.now() > user.otp_created_at + timedelta(minutes=OTP_EXPIRY_MINUTES)
+
+
 class SendOTPView(APIView):
     def post(self, request):
         serializer = SendOTPSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data["email"]
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            user, created = User.objects.get_or_create(email=email)
+        email      = serializer.validated_data["email"]
+        user, _    = User.objects.get_or_create(email=email)
 
-            if user.is_active:
-                return Response(
-                    {"error": "Email already registered"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        if user.is_active:
+            return Response({"error": "Email already registered"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Reset verification state
-            user.email_verified = False
-            user.save()
-
-            send_otp_email(user)
-            return Response({"message": "OTP sent successfully"})
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user.email_verified = False
+        user.save()
+        send_otp_email(user)
+        return Response({"message": "OTP sent successfully"})
 
 
-# -----------------------------
-# VERIFY OTP
-# -----------------------------
 class VerifyOTPView(APIView):
     def post(self, request):
         serializer = VerifyOTPSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data["email"]
-            otp = serializer.validated_data["otp"]
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                return Response(
-                    {"error": "User not found"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+        email = serializer.validated_data["email"]
+        otp   = serializer.validated_data["otp"]
 
-            # Check attempt limit
-            if user.otp_attempts >= 5:
-                return Response(
-                    {"error": "Too many OTP attempts"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
-            # Check OTP match
-            if not user.otp or user.otp != otp:
-                user.otp_attempts += 1
-                user.save()
-                return Response(
-                    {"error": "Invalid OTP"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        if user.otp_attempts >= 5:
+            return Response({"error": "Too many OTP attempts"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Check expiry
-            if timezone.now() > user.otp_created_at + timedelta(minutes=5):
-                return Response(
-                    {"error": "OTP expired"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Success
-            user.email_verified = True
-            user.otp_verified_for_reset = True 
-            user.otp_attempts = 0
+        if not user.otp or user.otp != otp:
+            user.otp_attempts += 1
             user.save()
+            return Response({"error": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response({"message": "OTP verified successfully"})
+        if _otp_expired(user):
+            return Response({"error": "OTP expired"}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user.email_verified        = True
+        user.otp_verified_for_reset = True
+        user.otp_attempts          = 0
+        user.save()
+        return Response({"message": "OTP verified successfully"})
 
 
-# -----------------------------
-# REGISTER
-# -----------------------------
 class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data["email"]
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                return Response(
-                    {"error": "Send OTP first"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        email = serializer.validated_data["email"]
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "Send OTP first"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if not user.email_verified:
-                return Response(
-                    {"error": "Verify email first"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        if not user.email_verified:
+            return Response({"error": "Verify email first"}, status=status.HTTP_400_BAD_REQUEST)
 
-            user.name = serializer.validated_data["name"]
-            user.mobile = serializer.validated_data["mobile"]
-            user.set_password(serializer.validated_data["password"])
-            user.is_active = True
-            user.save()
-
-            return Response({"message": "Registration completed successfully"})
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user.name      = serializer.validated_data["name"]
+        user.mobile    = serializer.validated_data["mobile"]
+        user.is_active = True
+        user.set_password(serializer.validated_data["password"])
+        user.save()
+        return Response({"message": "Registration completed successfully"})
 
 
-# -----------------------------
-# LOGIN
-# -----------------------------
 class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data["email"]
-            password = serializer.validated_data["password"]
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            user = authenticate(request, email=email, password=password)
+        user = authenticate(
+            request,
+            email=serializer.validated_data["email"],
+            password=serializer.validated_data["password"],
+        )
+        if not user:
+            return Response({"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.is_active:
+            return Response({"error": "Account not active"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if not user:
-                return Response(
-                    {"error": "Invalid credentials"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            if not user.is_active:
-                return Response(
-                    {"error": "Account not active"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            refresh = RefreshToken.for_user(user)
-
-            return Response({
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-            })
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        refresh = RefreshToken.for_user(user)
+        return Response({"refresh": str(refresh), "access": str(refresh.access_token)})
 
 
-# -----------------------------
-# FORGOT PASSWORD - SEND OTP
-# -----------------------------
 class ForgotPasswordSendOTPView(APIView):
     def post(self, request):
         serializer = SendOTPSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data["email"]
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                return Response(
-                    {"error": "Email not registered"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+        email = serializer.validated_data["email"]
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "Email not registered"}, status=status.HTTP_404_NOT_FOUND)
 
-            if not user.is_active:
-                return Response(
-                    {"error": "Account not active"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        if not user.is_active:
+            return Response({"error": "Account not active"}, status=status.HTTP_400_BAD_REQUEST)
 
-            send_otp_email(user)
-            return Response({"message": "OTP sent for password reset"})
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        send_otp_email(user)
+        return Response({"message": "OTP sent for password reset"})
 
 
-# -----------------------------
-# RESET PASSWORD
-# -----------------------------
 class ResetPasswordView(APIView):
     def post(self, request):
         serializer = ResetPasswordSerializer(data=request.data)
-        if serializer.is_valid():
-            email = serializer.validated_data["email"]
-            otp = serializer.validated_data["otp"]
-            new_password = serializer.validated_data["new_password"]
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                return Response({"error": "User not found"}, status=400)
+        email        = serializer.validated_data["email"]
+        otp          = serializer.validated_data["otp"]
+        new_password = serializer.validated_data["new_password"]
 
-            # Check if OTP exists
-            if not user.otp or not user.otp_created_at:
-                return Response({"error": "No OTP found"}, status=400)
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=400)
 
-            # Validate OTP
-            if user.otp != otp:
-                return Response({"error": "Invalid OTP"}, status=400)
+        if not user.otp or not user.otp_created_at:
+            return Response({"error": "No OTP found"}, status=400)
+        if user.otp != otp:
+            return Response({"error": "Invalid OTP"}, status=400)
+        if _otp_expired(user):
+            return Response({"error": "OTP expired"}, status=400)
 
-            # Check expiry - only if otp_created_at exists
-            if timezone.now() > user.otp_created_at + timedelta(minutes=5):
-                return Response({"error": "OTP expired"}, status=400)
+        user.set_password(new_password)
+        user.otp                    = None
+        user.otp_created_at         = None
+        user.otp_verified_for_reset = False
+        user.save()
+        return Response({"message": "Password reset successful"})
 
-            user.set_password(new_password)
-            user.otp = None
-            user.otp_created_at = None
-            user.otp_verified_for_reset = False  # Reset the flag
 
-            user.save()
-
-            return Response({"message": "Password reset successful"})
-
-# -----------------------------
-# CHANGE PASSWORD
-# -----------------------------
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        if serializer.is_valid():
-            user = request.user
-            current_password = serializer.validated_data["current_password"]
-            new_password = serializer.validated_data["new_password"]
+        user = request.user
+        if not user.check_password(serializer.validated_data["current_password"]):
+            return Response({"error": "Current password is incorrect"}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Check current password
-            if not user.check_password(current_password):
-                return Response(
-                    {"error": "Current password is incorrect"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        user.set_password(serializer.validated_data["new_password"])
+        user.save()
+        return Response({"message": "Password changed successfully"})
 
-            # Set new password
-            user.set_password(new_password)
-            user.save()
 
-            return Response({"message": "Password changed successfully"})
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-# -----------------------------
-# EDIT PROFILE
-# -----------------------------
 class EditProfileView(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request):
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data)
+        return Response(UserSerializer(request.user).data)
 
     def patch(self, request):
-        user = request.user
-
-        name = request.data.get("name")
+        user   = request.user
+        name   = request.data.get("name")
         mobile = request.data.get("mobile")
-        email = request.data.get("email")
+        email  = request.data.get("email")
 
         if name:
             user.name = name
-
         if mobile:
             user.mobile = mobile
 
-        # Email change
         if email and email != user.email:
             if User.objects.filter(email=email).exists():
                 return Response({"error": "Email already in use"}, status=400)
-
             user.pending_email = email
             user.save()
-
             send_otp_email(user, target_email=email)
-
-            return Response({
-                "message": "OTP sent to new email. Verify to complete change."
-            })
+            return Response({"message": "OTP sent to new email. Verify to complete change."})
 
         user.save()
-
         return Response({"message": "Profile updated successfully"})
 
-# -----------------------------
-# VERIFY NEW EMAIL OTP
-# -----------------------------
+
 class VerifyEmailChangeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        otp = request.data.get("otp")
+        otp  = request.data.get("otp")
         user = request.user
 
         if not user.pending_email:
             return Response({"error": "No pending email change"}, status=400)
-
         if user.otp != otp:
             return Response({"error": "Invalid OTP"}, status=400)
-
-        if timezone.now() > user.otp_created_at + timedelta(minutes=5):
+        if _otp_expired(user):
             return Response({"error": "OTP expired"}, status=400)
 
-        user.email = user.pending_email
+        user.email         = user.pending_email
         user.pending_email = None
         user.email_verified = True
-        user.otp = None
+        user.otp           = None
         user.save()
-
         return Response({"message": "Email updated successfully"})
-

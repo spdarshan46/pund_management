@@ -1,4 +1,3 @@
-// src/pages/dashboard/Profile.jsx
 import React, { useState, useEffect } from 'react';
 import {
   FiUser, FiMail, FiPhone, FiEdit2, FiSave,

@@ -1,4 +1,3 @@
-// src/pages/ForgotPassword.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';

@@ -1,4 +1,3 @@
-// src/pages/PundDetail/components/MembersTab/MemberListItem.jsx
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiEye, FiEdit2, FiTrash2, FiRefreshCw } from 'react-icons/fi';

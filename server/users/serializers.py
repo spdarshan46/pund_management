@@ -8,29 +8,30 @@ class SendOTPSerializer(serializers.Serializer):
 
 class VerifyOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    otp = serializers.CharField(max_length=6)
+    otp   = serializers.CharField(max_length=6)
 
 
 class RegisterSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    name = serializers.CharField()
-    mobile = serializers.CharField()
+    email    = serializers.EmailField()
+    name     = serializers.CharField()
+    mobile   = serializers.CharField()
     password = serializers.CharField()
 
 
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    email    = serializers.EmailField()
     password = serializers.CharField()
 
 
 class ResetPasswordSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    otp = serializers.CharField(max_length=6)
+    email        = serializers.EmailField()
+    otp          = serializers.CharField(max_length=6)
     new_password = serializers.CharField()
+
 
 class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField(write_only=True)
-    new_password = serializers.CharField(write_only=True)
+    new_password     = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
 
     def validate(self, data):
@@ -38,8 +39,8 @@ class ChangePasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError("New passwords do not match")
         return data
 
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
+        model  = User
         fields = ["id", "name", "email", "mobile"]
-    

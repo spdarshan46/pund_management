@@ -1,4 +1,3 @@
-// src/pages/PundDetail/components/Modals/LoanModal.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {

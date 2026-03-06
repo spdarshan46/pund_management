@@ -1,4 +1,3 @@
-// src/pages/dashboard/ChangePassword.jsx
 import React, { useState, useEffect } from 'react';
 import { FiLock, FiSave, FiEye, FiEyeOff, FiShield, FiCheck } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
