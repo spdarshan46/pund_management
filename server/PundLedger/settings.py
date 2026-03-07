@@ -109,7 +109,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ── CORS ──────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://pundx.vercel.app",
+    "https://pund-management.vercel.app",
 ]
 
 # ── REST Framework ────────────────────────────────────────────
@@ -153,7 +153,7 @@ EMAIL_HOST_USER     = config("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL  = EMAIL_HOST_USER
 
-FRONTEND_URL = "https://pundx.vercel.app"
+FRONTEND_URL = "https://pund-management.vercel.app"
 
 # ── Logging ───────────────────────────────────────────────────
 LOGGING = {
