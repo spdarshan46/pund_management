@@ -103,6 +103,7 @@ USE_TZ        = True
 
 # ── Static Files ──────────────────────────────────────────────
 STATIC_URL         = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # ── CORS ──────────────────────────────────────────────────────
