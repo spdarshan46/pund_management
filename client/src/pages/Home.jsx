@@ -216,7 +216,7 @@ html { scroll-behavior: smooth; }
 
 
 .px-h1 {
-  font-size: clamp(36px, 6.5vw, 72px);
+  font-size: clamp(55px, 6.5vw, 72px);
   font-weight: 800; line-height: 1.06; letter-spacing: -.05em;
   color: var(--t1); max-width: 820px; margin: 0 auto 22px;
   position: relative; z-index: 1;
