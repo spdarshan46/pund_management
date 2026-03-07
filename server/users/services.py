@@ -73,7 +73,10 @@ def send_otp_email(user, target_email=None):
     )
 
     email.attach_alternative(html_content, "text/html")
-    email.send()
+    try:
+        email.send(fail_silently=False)
+    except Exception as e:
+        print("Email send failed:", e)
 
 def verify_otp(user, otp):
     if not user.otp or user.otp != otp:
