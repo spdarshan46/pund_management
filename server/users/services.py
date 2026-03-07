@@ -3,11 +3,12 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.utils import timezone
-from django.core.mail import EmailMultiAlternatives
+import resend
 
 
 def generate_otp():
     return str(random.randint(100000, 999999))
+
 
 def send_otp_email(user, target_email=None):
     otp = generate_otp()
@@ -24,26 +25,18 @@ def send_otp_email(user, target_email=None):
     
         <div style="max-width:600px;margin:auto;background:white;border-radius:8px;overflow:hidden">
 
-            <!-- HEADER -->
             <div style="background:#00529b;padding:20px;text-align:center;color:white">
                 <h2 style="margin:0">PUNDX</h2>
                 <p style="margin:0;font-size:12px">Community Savings Management System</p>
             </div>
 
-            <!-- BODY -->
             <div style="padding:30px;text-align:center">
 
                 <h3>Email Verification</h3>
 
                 <p>Your One Time Password (OTP) is:</p>
 
-                <div style="
-                    font-size:32px;
-                    font-weight:bold;
-                    letter-spacing:6px;
-                    color:#00529b;
-                    margin:20px 0;
-                ">
+                <div style="font-size:32px;font-weight:bold;letter-spacing:6px;color:#00529b;margin:20px 0;">
                     {otp}
                 </div>
 
@@ -55,7 +48,6 @@ def send_otp_email(user, target_email=None):
 
             </div>
 
-            <!-- FOOTER -->
             <div style="background:#eef5ff;padding:15px;text-align:center;font-size:12px;color:#555">
                 This is a system generated email from <b>PUNDX</b>.
             </div>
@@ -65,20 +57,20 @@ def send_otp_email(user, target_email=None):
     </div>
     """
 
-    email = EmailMultiAlternatives(
-        subject,
-        "Your OTP is " + otp,
-        settings.DEFAULT_FROM_EMAIL,
-        [target_email or user.email],
-    )
+    resend.api_key = settings.RESEND_API_KEY
 
-    email.attach_alternative(html_content, "text/html")
     try:
-        email.send(fail_silently=False)
+        resend.Emails.send({
+            "from": "PUNDX <onboarding@resend.dev>",
+            "to": [target_email or user.email],
+            "subject": subject,
+            "html": html_content,
+        })
+
         print("OTP email sent successfully")
+
     except Exception as e:
-        print("SMTP ERROR:", e)
-        return
+        print("EMAIL ERROR:", e)
 
 def verify_otp(user, otp):
     if not user.otp or user.otp != otp:
