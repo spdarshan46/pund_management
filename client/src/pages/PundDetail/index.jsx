@@ -15,7 +15,7 @@ import OverviewTab from './components/OverviewTab';
 import SavingsTab from './components/SavingsTab';
 import MembersTab from './components/MembersTab/index';
 import LoansTab from './components/LoansTab';
-import AuditLogsTab from './components/AuditLogsTab';
+import AuditLogsTab from './components/AuditLogsTab.jsx';
 import PaymentsTab from './components/PaymentsTab';
 import StructureTab from './components/StructureTab';
 import ClosePundTab from './components/ClosePundTab';
