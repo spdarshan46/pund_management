@@ -1,7 +1,7 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_URL = 'http://127.0.0.1:8000';
+const API_URL = 'https://pund-management.onrender.com';
 
 const api = axios.create({
   baseURL: API_URL,

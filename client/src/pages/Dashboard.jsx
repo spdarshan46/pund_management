@@ -565,7 +565,7 @@ const Dashboard = () => {
   const fetchMyPunds = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/punds/my-all/');
+      const res = await api.get('https://pund-management.onrender.com/punds/my-all/');
       setPunds(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       if (err.response?.status === 401) {
