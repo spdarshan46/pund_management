@@ -109,12 +109,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ── CORS ──────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://pund-management.vercel.app",
+    "https://pundx.vercel.app",
 ]
 CORS_ALLOW_HEADERS = ["*"]
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 CSRF_TRUSTED_ORIGINS = [
-    "https://pund-management.vercel.app",
+    "https://pundx.vercel.app",
 ]
 # ── REST Framework ────────────────────────────────────────────
 REST_FRAMEWORK = {
@@ -151,7 +151,7 @@ SIMPLE_JWT = {
 # ── Email ─────────────────────────────────────────────────────
 RESEND_API_KEY = config("RESEND_API_KEY")
 
-FRONTEND_URL = "https://pund-management.vercel.app"
+FRONTEND_URL = "https://pundx.vercel.app"
 
 # ── Logging ───────────────────────────────────────────────────
 LOGGING = {
