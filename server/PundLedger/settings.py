@@ -111,7 +111,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://pund-management.vercel.app",
 ]
-
+CORS_ALLOW_HEADERS = ["*"]
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+CSRF_TRUSTED_ORIGINS = [
+    "https://pund-management.vercel.app",
+]
 # ── REST Framework ────────────────────────────────────────────
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
