@@ -18,7 +18,7 @@ X_FRAME_OPTIONS             = "DENY"
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    "pundx-backend.onrender.com",
+    "pund-management.onrender.com",
 ]
 
 AUTH_USER_MODEL = "users.User"
