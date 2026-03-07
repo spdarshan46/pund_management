@@ -621,6 +621,7 @@ const Home = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.25, 1, 0.35, 1] }}
           >
+            <br></br>
             {/* H1 */}
             <h1 className="px-h1">
               Group savings,<br />
