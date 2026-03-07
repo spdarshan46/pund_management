@@ -1,0 +1,64 @@
+Here's the complete list of **actually used** APIs from all the frontend files:
+
+---
+
+### 🔐 Auth — `/users/`
+| Method | Endpoint |
+|---|---|
+| POST | `/users/send-otp/` |
+| POST | `/users/verify-otp/` |
+| POST | `/users/register/` |
+| POST | `/users/login/` |
+| POST | `/users/forgot-password/` |
+| POST | `/users/reset-password/` |
+| POST | `/users/change-password/` |
+| POST | `/users/verify-email-change/` |
+| GET | `/users/me/` |
+| PATCH | `/users/me/` |
+
+---
+
+### 🏦 Punds — `/punds/`
+| Method | Endpoint |
+|---|---|
+| POST | `/punds/create/` |
+| GET | `/punds/my-all/` |
+| GET | `/punds/{id}/` |
+| POST | `/punds/{id}/close/` |
+| POST | `/punds/{id}/reopen/` |
+| POST | `/punds/{id}/add-member/` |
+| POST | `/punds/{id}/remove-member/{member_id}/` |
+| POST | `/punds/{id}/reactivate-member/{member_id}/` |
+| PATCH | `/punds/{id}/edit-member/{user_id}/` |
+
+---
+
+### 💰 Finance — `/finance/`
+| Method | Endpoint |
+|---|---|
+| POST | `/finance/pund/{id}/set-structure/` |
+| POST | `/finance/pund/{id}/generate-cycle/` |
+| GET | `/finance/pund/{id}/cycle-payments/` |
+| POST | `/finance/payment/{id}/mark-paid/` |
+| POST | `/finance/pund/{id}/request-loan/` |
+| GET | `/finance/pund/{id}/loans/` |
+| POST | `/finance/loan/{id}/approve/` |
+| POST | `/finance/loan/{id}/reject/` |
+| GET | `/finance/loan/{id}/detail/` |
+| POST | `/finance/installment/{id}/mark-paid/` |
+| GET | `/finance/pund/{id}/fund-summary/` |
+| GET | `/finance/pund/{id}/saving-summary/` |
+| GET | `/finance/pund/{id}/audit-logs/` |
+| GET | `/finance/pund/{id}/my-financial-summary/` |
+| GET | `/finance/my-loans/` |
+
+---
+
+### 📊 Total Count
+
+| Method | Count |
+|---|---|
+| GET | 12 |
+| POST | 18 |
+| PATCH | 2 |
+| **Total** | **32** |

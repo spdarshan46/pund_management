@@ -4,10 +4,12 @@ from django.contrib.auth import authenticate
 from django.utils import timezone
 
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from .throttles import LoginThrottle, OTPThrottle, PasswordResetThrottle
 
 from .models import User
 from .serializers import (
@@ -29,6 +31,9 @@ def _otp_expired(user):
 
 
 class SendOTPView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [OTPThrottle]
+    
     def post(self, request):
         serializer = SendOTPSerializer(data=request.data)
         if not serializer.is_valid():
@@ -47,6 +52,9 @@ class SendOTPView(APIView):
 
 
 class VerifyOTPView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [OTPThrottle]
+
     def post(self, request):
         serializer = VerifyOTPSerializer(data=request.data)
         if not serializer.is_valid():
@@ -79,29 +87,42 @@ class VerifyOTPView(APIView):
 
 
 class RegisterView(APIView):
+    permission_classes = [AllowAny]
+    
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=400)
 
         email = serializer.validated_data["email"]
+
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            return Response({"error": "Send OTP first"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Send OTP first"}, status=400)
 
         if not user.email_verified:
-            return Response({"error": "Verify email first"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Verify email first"}, status=400)
 
-        user.name      = serializer.validated_data["name"]
-        user.mobile    = serializer.validated_data["mobile"]
+        mobile = serializer.validated_data["mobile"]
+
+        # 🔴 FIX: check duplicate mobile
+        if User.objects.filter(mobile=mobile).exclude(id=user.id).exists():
+            return Response({"error": "Mobile number already registered"}, status=400)
+
+        user.name = serializer.validated_data["name"]
+        user.mobile = mobile
         user.is_active = True
         user.set_password(serializer.validated_data["password"])
         user.save()
+
         return Response({"message": "Registration completed successfully"})
 
 
 class LoginView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [LoginThrottle]
+
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
@@ -122,6 +143,9 @@ class LoginView(APIView):
 
 
 class ForgotPasswordSendOTPView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetThrottle]
+
     def post(self, request):
         serializer = SendOTPSerializer(data=request.data)
         if not serializer.is_valid():
@@ -141,6 +165,8 @@ class ForgotPasswordSendOTPView(APIView):
 
 
 class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+    
     def post(self, request):
         serializer = ResetPasswordSerializer(data=request.data)
         if not serializer.is_valid():
@@ -236,3 +262,4 @@ class VerifyEmailChangeView(APIView):
         user.otp           = None
         user.save()
         return Response({"message": "Email updated successfully"})
+    

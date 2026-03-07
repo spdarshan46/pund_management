@@ -10,7 +10,7 @@ class Pund(models.Model):
         ("MONTHLY", "Monthly"),
     )
 
-    name       = models.CharField(max_length=150)
+    name       = models.CharField(max_length=150,unique=True)
     pund_type  = models.CharField(max_length=10, choices=PUND_TYPE_CHOICES)
     start_date = models.DateField(default=timezone.now)
     is_active  = models.BooleanField(default=True)

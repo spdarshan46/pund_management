@@ -9,7 +9,6 @@ from django.core.mail import EmailMultiAlternatives
 def generate_otp():
     return str(random.randint(100000, 999999))
 
-
 def send_otp_email(user, target_email=None):
     otp = generate_otp()
 
@@ -88,7 +87,6 @@ def verify_otp(user, otp):
     user.email_verified = True
     user.save()
     return True, "OTP Verified"
-
 
 def send_invite_email(user, pund_name):
 

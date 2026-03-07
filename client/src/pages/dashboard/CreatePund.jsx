@@ -228,8 +228,8 @@ const Styles = () => {
 
 /* ─── Pund types ─────────────────────────────────────────── */
 const PUND_TYPES = [
-  { value: 'DAILY',   label: 'Daily',   icon: FiClock,      desc: 'Contribute every day' },
-  { value: 'WEEKLY',  label: 'Weekly',  icon: FiCalendar,   desc: 'Contribute every week' },
+  { value: 'DAILY', label: 'Daily', icon: FiClock, desc: 'Contribute every day' },
+  { value: 'WEEKLY', label: 'Weekly', icon: FiCalendar, desc: 'Contribute every week' },
   { value: 'MONTHLY', label: 'Monthly', icon: FiDollarSign, desc: 'Contribute every month' },
 ];
 
@@ -244,7 +244,7 @@ const CreatePund = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ name: '', pund_type: 'WEEKLY', description: '' });
-  const [errors,   setErrors]  = useState({});
+  const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
     setFormData(p => ({ ...p, [e.target.name]: e.target.value }));
@@ -261,14 +261,26 @@ const CreatePund = () => {
     setLoading(true);
     try {
       await api.post('/punds/create/', {
-        name:        formData.name,
-        pund_type:   formData.pund_type,
+        name: formData.name,
+        pund_type: formData.pund_type,
         description: formData.description,
       });
       toast.success('Pund created successfully!');
       navigate('/dashboard');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to create pund');
+      const data = err.response?.data;
+
+      let message = "Failed to create pund";
+
+      if (data) {
+        if (data.error) {
+          message = data.error;
+        } else {
+          message = Object.values(data).flat().join(", ");
+        }
+      }
+
+      toast.error(message);
     } finally { setLoading(false); }
   };
 

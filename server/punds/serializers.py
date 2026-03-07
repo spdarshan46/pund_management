@@ -9,6 +9,10 @@ class CreatePundSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Pund
         fields = ["name", "pund_type"]
+    def validate_name(self, value):
+        if Pund.objects.filter(name=value).exists():
+            raise serializers.ValidationError("Pund with this name already exists.")
+        return value
 
 
 class AddMemberSerializer(serializers.Serializer):

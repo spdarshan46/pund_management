@@ -1,33 +1,46 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# ======================
+# Python / Django
+# ======================
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
+# Django files
+db.sqlite3
+staticfiles/
+media/
 
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+# Environment variables
+.env
+server/.env
 
-### VS Code ###
+# ======================
+# Node / React
+# ======================
+
+client/node_modules/
+client/dist/
+client/dist-ssr/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ======================
+# IDE / Editor
+# ======================
+
 .vscode/
+.idea/
+
+# ======================
+# OS files
+# ======================
+
+.DS_Store
+Thumbs.db

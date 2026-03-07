@@ -55,18 +55,32 @@ class CreatePundView(APIView):
 
     def post(self, request):
         serializer = CreatePundSerializer(data=request.data)
+
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
 
-        pund = serializer.save(is_active=True, created_by=request.user)
-        Membership.objects.create(user=request.user, pund=pund, role="OWNER", is_active=True)
+        try:
+            pund = serializer.save(is_active=True, created_by=request.user)
+
+            Membership.objects.create(
+                user=request.user,
+                pund=pund,
+                role="OWNER",
+                is_active=True
+            )
+
+        except Exception:
+            return Response(
+                {"error": "Unable to create pund"},
+                status=400
+            )
 
         return Response({
-            "pund_id":     pund.id,
-            "pund_name":   pund.name,
-            "pund_type":   pund.pund_type,
+            "pund_id": pund.id,
+            "pund_name": pund.name,
+            "pund_type": pund.pund_type,
             "pund_active": pund.is_active,
-            "role":        "OWNER",
+            "role": "OWNER",
         }, status=201)
 
 
@@ -313,3 +327,4 @@ class OwnerEditMemberView(APIView):
 
         member.save()
         return Response({"message": "Member updated successfully"})
+    
