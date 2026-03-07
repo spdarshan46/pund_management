@@ -53,13 +53,13 @@ api.interceptors.response.use(
 );
 
 export const authAPI = {
-  sendOTP: (email) => api.post('/users/send-otp/', { email }),
-  forgotPasswordSendOTP: (email) => api.post('/users/forgot-password/', { email }),
-  verifyOTP: (email, otp) => api.post('/users/verify-otp/', { email, otp }),
+  sendOTP: (email) => api.post('/users/send-otp/', { email: email }),
+  forgotPasswordSendOTP: (email) => api.post('/users/forgot-password/', { email: email }),
+  verifyOTP: (email, otp) => api.post('/users/verify-otp/', { email: email, otp }),
   register: (userData) => api.post('/users/register/', userData),
   resetPassword: (email, otp, new_password) => 
-    api.post('/users/reset-password/', { email, otp, new_password }),
-  login: (email, password) => api.post('/users/login/', { email, password }),
+    api.post('/users/reset-password/', { email: email, otp, new_password }),
+  login: (email, password) => api.post('/users/login/', { email: email, password }),
 };
 
 // Export api for other endpoints
