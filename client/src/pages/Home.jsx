@@ -508,9 +508,9 @@ const Home = () => {
   const useCases = ['👨‍👩‍👧‍👦 Families', '🤝 Community Groups', '🏦 Self-Help Groups', '🔄 Rotating Savings', '💼 Small Finance', '🌾 Farmer Groups'];
   const navLinks = [['#how-it-works', 'How it works'], ['#features', 'Features'], ['#security', 'Security']];
   const socials  = [
-    { icon: FiMail,      href: 'mailto:darshan@pundx.com',              label: 'Email' },
-    { icon: FiLinkedin,  href: 'https://linkedin.com/in/spdarshan',      label: 'LinkedIn' },
-    { icon: FiGithub,    href: 'https://github.com/spdarshan',           label: 'GitHub' },
+    { icon: FiMail,      href: 'mailto:spdarshan252@gmail.com',              label: 'Email' },
+    { icon: FiLinkedin,  href: 'https://www.linkedin.com/in/spdarshan252',      label: 'LinkedIn' },
+    { icon: FiGithub,    href: 'https://github.com/spdarshan46',           label: 'GitHub' },
     { icon: FiInstagram, href: 'https://instagram.com/spdarshan252',     label: 'Instagram' },
   ];
 
