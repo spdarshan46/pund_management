@@ -88,13 +88,22 @@ class VerifyOTPView(APIView):
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
-    
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
+
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
 
         email = serializer.validated_data["email"]
+        mobile = serializer.validated_data["mobile"]
+
+        # ✅ check mobile first
+        if User.objects.filter(mobile=mobile).exists():
+            return Response(
+                {"error": "Mobile number already registered"},
+                status=400
+            )
 
         try:
             user = User.objects.get(email=email)
@@ -104,12 +113,6 @@ class RegisterView(APIView):
         if not user.email_verified:
             return Response({"error": "Verify email first"}, status=400)
 
-        mobile = serializer.validated_data["mobile"]
-
-        # 🔴 FIX: check duplicate mobile
-        if User.objects.filter(mobile=mobile).exclude(id=user.id).exists():
-            return Response({"error": "Mobile number already registered"}, status=400)
-
         user.name = serializer.validated_data["name"]
         user.mobile = mobile
         user.is_active = True
@@ -117,7 +120,6 @@ class RegisterView(APIView):
         user.save()
 
         return Response({"message": "Registration completed successfully"})
-
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
