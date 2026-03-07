@@ -32,25 +32,37 @@ def _otp_expired(user):
 
 class SendOTPView(APIView):
     permission_classes = [AllowAny]
-    throttle_classes = [OTPThrottle]
-    
+
     def post(self, request):
-        serializer = SendOTPSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        email      = serializer.validated_data["email"]
-        user, _    = User.objects.get_or_create(email=email)
+        email = request.data.get("email")
+        mobile = request.data.get("mobile")
 
-        if user.is_active:
-            return Response({"error": "Email already registered"}, status=status.HTTP_400_BAD_REQUEST)
+        if not email:
+            return Response({"error": "Email required"}, status=400)
 
-        user.email_verified = False
-        user.save()
+        # 🔴 Check email already registered
+        if User.objects.filter(email=email, email_verified=True).exists():
+            return Response(
+                {"error": "Email already registered"},
+                status=400
+            )
+
+        # 🔴 Check mobile already registered
+        if mobile and User.objects.filter(mobile=mobile).exists():
+            return Response(
+                {"error": "Mobile number already registered"},
+                status=400
+            )
+
+        # create or update user
+        user, created = User.objects.get_or_create(email=email)
+
         send_otp_email(user)
+
         return Response({"message": "OTP sent successfully"})
-
-
+    
+    
 class VerifyOTPView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [OTPThrottle]
@@ -120,6 +132,7 @@ class RegisterView(APIView):
         user.save()
 
         return Response({"message": "Registration completed successfully"})
+
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
