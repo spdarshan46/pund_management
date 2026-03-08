@@ -254,8 +254,8 @@ const nextWeekStr = () => {
 /* ─── field config ── */
 const FIELDS = [
   { name: 'saving_amount', label: 'Saving amount', icon: '₹', placeholder: 'e.g. 1000', min: '1', step: '1', hint: '' },
-  { name: 'loan_interest_percentage', label: 'Loan Interest', icon: '%', placeholder: 'e.g. 10', min: '0', step: '0.1', hint: 'Per cycle' },
   { name: 'missed_saving_penalty', label: 'Missed saving penalty', icon: '₹', placeholder: 'e.g. 100', min: '0', step: '1', hint: '' },
+  { name: 'loan_interest_percentage', label: 'Loan Interest', icon: '%', placeholder: 'e.g. 10', min: '0', step: '0.1', hint: 'Per cycle' },
   { name: 'missed_loan_penalty', label: 'Missed loan penalty', icon: '₹', placeholder: 'e.g. 100', min: '0', step: '1', hint: '' },
 ];
 

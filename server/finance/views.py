@@ -562,33 +562,63 @@ class FundSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pund_id):
-        pund = _get_pund(pund_id, active_only=False)
+        pund = Pund.objects.filter(id=pund_id).first()
         if not pund:
             return Response({"error": "Pund not found"}, status=404)
-        if not _get_membership(request.user, pund):
+
+        is_member = Membership.objects.filter(
+            user=request.user,
+            pund=pund,
+            is_active=True
+        ).exists()
+
+        if not is_member:
             return Response({"error": "Not authorized"}, status=403)
 
-        collected_agg = Payment.objects.filter(pund=pund, is_paid=True).aggregate(
+        # -------- TOTAL COLLECTED --------
+        total_collected_data = Payment.objects.filter(
+            pund=pund,
+            is_paid=True
+        ).aggregate(
             total_amount=models.Sum("amount"),
-            total_penalty=models.Sum("penalty_amount"),
+            total_penalty=models.Sum("penalty_amount")
         )
-        total_savings   = collected_agg["total_amount"]  or Decimal("0")
-        total_penalties = collected_agg["total_penalty"] or Decimal("0")
+
+        total_savings = total_collected_data["total_amount"] or Decimal("0")
+        total_penalties = total_collected_data["total_penalty"] or Decimal("0")
         total_collected = total_savings + total_penalties
 
-        active_loans     = Loan.objects.filter(pund=pund, is_active=True)
-        total_outstanding = active_loans.aggregate(v=models.Sum("remaining_amount"))["v"] or Decimal("0")
-        total_principal   = active_loans.aggregate(v=models.Sum("principal_amount"))["v"]  or Decimal("0")
-        total_payable_sum = active_loans.aggregate(v=models.Sum("total_payable"))["v"]      or Decimal("0")
+        # -------- ACTIVE LOANS --------
+        active_loans = Loan.objects.filter(
+            pund=pund,
+            is_active=True
+        )
+
+        total_outstanding = active_loans.aggregate(
+            total=models.Sum("remaining_amount")
+        )["total"] or Decimal("0")
+
+        total_principal = active_loans.aggregate(
+            total=models.Sum("principal_amount")
+        )["total"] or Decimal("0")
+
+        total_payable = active_loans.aggregate(
+            total=models.Sum("total_payable")
+        )["total"] or Decimal("0")
+
+        total_interest = total_payable - total_principal
+        available = total_collected - total_outstanding
 
         return Response({
-            "total_collected":        str(total_collected),
-            "total_savings":          str(total_savings),
-            "total_penalties":        str(total_penalties),
+            "total_collected": str(total_collected),
+            "total_savings": str(total_savings),
+            "total_penalties": str(total_penalties),
+
             "active_loan_outstanding": str(total_outstanding),
-            "active_loan_principal":  str(total_principal),
-            "active_loan_interest":   str(total_payable_sum - total_principal),
-            "available_fund":         str(total_collected - total_outstanding),
+            "active_loan_principal": str(total_principal),
+            "active_loan_interest": str(total_interest),
+
+            "available_fund": str(available),
         })
 
 
