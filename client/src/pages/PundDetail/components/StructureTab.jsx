@@ -236,7 +236,7 @@ const Styles = () => {
 };
 
 /* ─── helpers ─────────────────────────────────────────────── */
-const fmt    = (v) => `₹${(parseFloat(v) || 0).toLocaleString('en-IN')}`;
+const fmt = (v) => `₹${(parseFloat(v) || 0).toLocaleString('en-IN')}`;
 const fmtDate = (s) => {
   if (!s) return 'N/A';
   const [y, m, d] = s.split('-');
@@ -244,34 +244,34 @@ const fmtDate = (s) => {
 };
 const todayStr = () => {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 const nextWeekStr = () => {
   const d = new Date(); d.setDate(d.getDate() + 7);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
 /* ─── field config ── */
 const FIELDS = [
-  { name: 'saving_amount',           label: 'Saving amount',         icon: '₹', placeholder: 'e.g. 1000', min: '1',   step: '1',   hint: '' },
-  { name: 'loan_interest_percentage',label: 'Interest rate',         icon: '%', placeholder: 'e.g. 10',   min: '0',   step: '0.1', hint: 'Per cycle' },
-  { name: 'missed_saving_penalty',   label: 'Missed saving penalty', icon: '₹', placeholder: 'e.g. 100',  min: '0',   step: '1',   hint: '' },
-  { name: 'missed_loan_penalty',     label: 'Missed loan penalty',   icon: '₹', placeholder: 'e.g. 100',  min: '0',   step: '1',   hint: '' },
+  { name: 'saving_amount', label: 'Saving amount', icon: '₹', placeholder: 'e.g. 1000', min: '1', step: '1', hint: '' },
+  { name: 'loan_interest_percentage', label: 'Interest rate', icon: '%', placeholder: 'e.g. 10', min: '0', step: '0.1', hint: 'Per cycle' },
+  { name: 'missed_saving_penalty', label: 'Missed saving penalty', icon: '₹', placeholder: 'e.g. 100', min: '0', step: '1', hint: '' },
+  { name: 'missed_loan_penalty', label: 'Missed loan penalty', icon: '₹', placeholder: 'e.g. 100', min: '0', step: '1', hint: '' },
 ];
 
 /* ═══════════════════════════════════════════════════════════ */
 const StructureTab = ({ pundData, onSubmit }) => {
   const [data, setData] = useState({
-    saving_amount:            pundData?.structure?.saving_amount            || '',
+    saving_amount: pundData?.structure?.saving_amount || '',
     loan_interest_percentage: pundData?.structure?.loan_interest_percentage || '',
-    missed_saving_penalty:    pundData?.structure?.missed_saving_penalty    || '',
-    missed_loan_penalty:      pundData?.structure?.missed_loan_penalty      || '',
-    default_loan_cycles:      pundData?.structure?.default_loan_cycles      || '10',
-    effective_from:           '',
+    missed_saving_penalty: pundData?.structure?.missed_saving_penalty || '',
+    missed_loan_penalty: pundData?.structure?.missed_loan_penalty || '',
+    default_loan_cycles: pundData?.structure?.default_loan_cycles || '10',
+    effective_from: '',
   });
   const [effectiveOpt, setEffectiveOpt] = useState('auto');
-  const [errors,    setErrors]    = useState({});
-  const [submitting,setSubmitting]= useState(false);
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (e) => {
     setData(p => ({ ...p, [e.target.name]: e.target.value }));
@@ -280,12 +280,12 @@ const StructureTab = ({ pundData, onSubmit }) => {
 
   const validate = () => {
     const errs = {};
-    if (!data.saving_amount            || parseFloat(data.saving_amount) <= 0)            errs.saving_amount            = 'Enter a valid amount (> 0)';
+    if (!data.saving_amount || parseFloat(data.saving_amount) <= 0) errs.saving_amount = 'Enter a valid amount (> 0)';
     if (data.loan_interest_percentage === '' || parseFloat(data.loan_interest_percentage) < 0) errs.loan_interest_percentage = 'Enter a valid rate (≥ 0)';
-    if (data.missed_saving_penalty    === '' || parseFloat(data.missed_saving_penalty) < 0)    errs.missed_saving_penalty    = 'Enter a valid penalty (≥ 0)';
-    if (data.missed_loan_penalty      === '' || parseFloat(data.missed_loan_penalty) < 0)      errs.missed_loan_penalty      = 'Enter a valid penalty (≥ 0)';
-    if (!data.default_loan_cycles      || parseInt(data.default_loan_cycles) < 1)              errs.default_loan_cycles      = 'Enter at least 1 cycle';
-    if (effectiveOpt === 'manual' && !data.effective_from)                                     errs.effective_from           = 'Please select a date';
+    if (data.missed_saving_penalty === '' || parseFloat(data.missed_saving_penalty) < 0) errs.missed_saving_penalty = 'Enter a valid penalty (≥ 0)';
+    if (data.missed_loan_penalty === '' || parseFloat(data.missed_loan_penalty) < 0) errs.missed_loan_penalty = 'Enter a valid penalty (≥ 0)';
+    if (!data.default_loan_cycles || parseInt(data.default_loan_cycles) < 1) errs.default_loan_cycles = 'Enter at least 1 cycle';
+    if (effectiveOpt === 'manual' && !data.effective_from) errs.effective_from = 'Please select a date';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -294,11 +294,11 @@ const StructureTab = ({ pundData, onSubmit }) => {
     e.preventDefault();
     if (!validate()) return;
     const payload = {
-      saving_amount:            parseFloat(data.saving_amount),
+      saving_amount: parseFloat(data.saving_amount),
       loan_interest_percentage: parseFloat(data.loan_interest_percentage),
-      missed_saving_penalty:    parseFloat(data.missed_saving_penalty),
-      missed_loan_penalty:      parseFloat(data.missed_loan_penalty),
-      default_loan_cycles:      parseInt(data.default_loan_cycles),
+      missed_saving_penalty: parseFloat(data.missed_saving_penalty),
+      missed_loan_penalty: parseFloat(data.missed_loan_penalty),
+      default_loan_cycles: parseInt(data.default_loan_cycles),
     };
     if (effectiveOpt === 'manual' && data.effective_from) payload.effective_from = data.effective_from;
     setSubmitting(true);
@@ -316,7 +316,7 @@ const StructureTab = ({ pundData, onSubmit }) => {
         {/* ── Main form card ── */}
         <motion.div className="st-card"
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.38, ease: [0.25,1,.35,1] }}
+          transition={{ duration: 0.38, ease: [0.25, 1, .35, 1] }}
         >
           {/* Banner */}
           <div className="st-banner">
@@ -349,11 +349,11 @@ const StructureTab = ({ pundData, onSubmit }) => {
 
                 <div className="st-current-grid">
                   {[
-                    { lbl: 'Saving Amount',    val: fmt(pundData.structure.saving_amount) },
-                    { lbl: 'Interest Rate',    val: `${pundData.structure.loan_interest_percentage}%` },
-                    { lbl: 'Saving Penalty',   val: fmt(pundData.structure.missed_saving_penalty) },
-                    { lbl: 'Loan Penalty',     val: fmt(pundData.structure.missed_loan_penalty) },
-                    { lbl: 'Loan Cycles',      val: pundData.structure.default_loan_cycles },
+                    { lbl: 'Saving Amount', val: fmt(pundData.structure.saving_amount) },
+                    { lbl: 'Saving Penalty', val: fmt(pundData.structure.missed_saving_penalty) },
+                    { lbl: 'Loan Interest', val: `${pundData.structure.loan_interest_percentage}%` },
+                    { lbl: 'Loan Penalty', val: fmt(pundData.structure.missed_loan_penalty) },
+                    { lbl: 'Loan Cycles', val: pundData.structure.default_loan_cycles },
                   ].map((c, i) => (
                     <div key={i} className="st-current-cell">
                       <div className="st-current-lbl">{c.lbl}</div>
