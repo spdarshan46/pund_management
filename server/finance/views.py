@@ -408,7 +408,8 @@ class MarkLoanInstallmentPaidView(APIView):
 
     @transaction.atomic
     def post(self, request, installment_id):
-        installment = LoanInstallment.objects.filter(id=installment_id).first()
+        installment = LoanInstallment.objects.select_for_update().filter(id=installment_id).first()        
+        
         if not installment:
             return Response({"error": "Installment not found"}, status=404)
 
@@ -428,16 +429,21 @@ class MarkLoanInstallmentPaidView(APIView):
         installment.paid_at = timezone.now()
         installment.save()
 
-        Payment.objects.create(
+        payment, created = Payment.objects.get_or_create(
             pund=loan.pund,
             member=loan.member,
             cycle_number=installment.cycle_number,
-            amount=installment.emi_amount,
-            penalty_amount=installment.penalty_amount,
-            is_paid=True,
-            paid_at=timezone.now(),
-            due_date=installment.due_date,
+            defaults={
+                "amount": installment.emi_amount,
+                "penalty_amount": installment.penalty_amount,
+                "is_paid": True,
+                "paid_at": timezone.now(),
+                "due_date": installment.due_date,
+            }
         )
+
+        if not created:
+            return Response({"error": "Payment already recorded for this cycle"}, status=400)
 
         FinanceAuditLog.objects.create(
             pund=loan.pund, user=request.user,
@@ -607,7 +613,7 @@ class FundSummaryView(APIView):
         )["total"] or Decimal("0")
 
         total_interest = total_payable - total_principal
-        available = total_collected - total_outstanding
+        available = total_collected - total_principal
 
         return Response({
             "total_collected": str(total_collected),
