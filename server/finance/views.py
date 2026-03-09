@@ -632,58 +632,30 @@ class SavingSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pund_id):
-        pund = Pund.objects.filter(id=pund_id).first()
+        pund = _get_pund(pund_id, active_only=False)
         if not pund:
             return Response({"error": "Pund not found"}, status=404)
-
-        # Check if user is a member of this pund (any role)
-        membership = Membership.objects.filter(
-            user=request.user,
-            pund=pund,
-            is_active=True
-        ).first()
-
-        if not membership:
+        if not _get_membership(request.user, pund):
             return Response({"error": "You are not a member of this pund"}, status=403)
 
-        # Now both OWNER and MEMBER can view the summary
-        payments = Payment.objects.filter(pund=pund)
+        payments       = Payment.objects.filter(pund=pund)
+        total_cycles   = payments.values("cycle_number").distinct().count()
+        total_expected = payments.aggregate(v=models.Sum("amount"))["v"] or Decimal("0")
 
-        total_cycles = payments.values("cycle_number").distinct().count()
-
-        total_expected = payments.aggregate(
-            total=models.Sum("amount")
-        )["total"] or Decimal("0")
-
-        # GROUP TOTAL - Include penalties
-        total_paid_data = payments.filter(is_paid=True).aggregate(
-            total_amount=models.Sum("amount"),
-            total_penalty=models.Sum("penalty_amount")
+        paid_agg   = payments.filter(is_paid=True).aggregate(
+            total_amount=models.Sum("amount"), total_penalty=models.Sum("penalty_amount")
         )
-        
-        total_paid = (total_paid_data["total_amount"] or Decimal("0")) + \
-                     (total_paid_data["total_penalty"] or Decimal("0"))
-
-        total_unpaid = payments.filter(is_paid=False).aggregate(
-            total=models.Sum("amount")
-        )["total"] or Decimal("0")
-
-        total_penalty = payments.aggregate(
-            total=models.Sum("penalty_amount")
-        )["total"] or Decimal("0")
-
-        total_members = Membership.objects.filter(
-            pund=pund,
-            role="MEMBER",
-            is_active=True
-        ).count()
+        total_paid    = (paid_agg["total_amount"] or Decimal("0")) + (paid_agg["total_penalty"] or Decimal("0"))
+        total_unpaid  = payments.filter(is_paid=False).aggregate(v=models.Sum("amount"))["v"] or Decimal("0")
+        total_penalty = payments.aggregate(v=models.Sum("penalty_amount"))["v"] or Decimal("0")
+        total_members = Membership.objects.filter(pund=pund, role="MEMBER", is_active=True).count()
 
         return Response({
-            "total_cycles": total_cycles,
-            "total_members": total_members,
-            "total_expected_savings": str(total_expected),
-            "total_paid_savings": str(total_paid),
-            "total_unpaid_savings": str(total_unpaid),
+            "total_cycles":             total_cycles,
+            "total_members":            total_members,
+            "total_expected_savings":   str(total_expected),
+            "total_paid_savings":       str(total_paid),
+            "total_unpaid_savings":     str(total_unpaid),
             "total_penalties_collected": str(total_penalty),
         })
 
@@ -691,61 +663,37 @@ class SavingSummaryView(APIView):
 class MyFinancialSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        user = request.user
+    def get(self, request, pund_id):
+        payments = Payment.objects.filter(member=request.user, pund_id=pund_id)
 
-        payments = Payment.objects.filter(member=user)
+        total_savings_paid   = payments.filter(is_paid=True).aggregate(v=models.Sum("amount"))["v"] or Decimal("0")
+        total_saving_penalty = payments.aggregate(v=models.Sum("penalty_amount"))["v"]              or Decimal("0")
+        total_unpaid_savings = payments.filter(is_paid=False).aggregate(v=models.Sum("amount"))["v"] or Decimal("0")
 
-        total_savings_paid = payments.filter(is_paid=True).aggregate(
-            total=models.Sum("amount") 
-        )["total"] or Decimal("0")
-
-        total_saving_penalty = payments.aggregate(
-            total=models.Sum("penalty_amount")  
-        )["total"] or Decimal("0")
-
-        total_unpaid_savings = payments.filter(is_paid=False).aggregate(
-            total=models.Sum("amount")
-        )["total"] or Decimal("0")
-
-        # Loan summary (keep as is)
-        active_loan = Loan.objects.filter(
-            member=user,
-            is_active=True
-        ).first()
-
-        loan_data = None
-
+        loan_data   = None
+        active_loan = Loan.objects.filter(member=request.user, is_active=True).first()
         if active_loan:
             apply_loan_penalty(active_loan)
-
             installments = LoanInstallment.objects.filter(loan=active_loan)
-
-            total_emi_paid = installments.filter(is_paid=True).aggregate(
-                total=models.Sum("emi_amount")
-            )["total"] or Decimal("0")
-
-            total_loan_penalty = installments.aggregate(
-                total=models.Sum("penalty_amount")
-            )["total"] or Decimal("0")
-
-            loan_data = {
-                "loan_id": active_loan.id,
-                "principal": str(active_loan.principal_amount),
-                "remaining_amount": str(active_loan.remaining_amount),
-                "total_payable": str(active_loan.total_payable),
-                "status": active_loan.status,
-                "total_emi_paid": str(total_emi_paid),
-                "total_loan_penalty": str(total_loan_penalty),
+            emi_paid     = installments.filter(is_paid=True).aggregate(v=models.Sum("emi_amount"))["v"]     or Decimal("0")
+            loan_penalty = installments.aggregate(v=models.Sum("penalty_amount"))["v"]                      or Decimal("0")
+            loan_data    = {
+                "loan_id":           active_loan.id,
+                "principal":         str(active_loan.principal_amount),
+                "remaining_amount":  str(active_loan.remaining_amount),
+                "total_payable":     str(active_loan.total_payable),
+                "status":            active_loan.status,
+                "total_emi_paid":    str(emi_paid),
+                "total_loan_penalty": str(loan_penalty),
             }
 
         return Response({
             "saving_summary": {
-                "total_savings_paid": str(total_savings_paid),  
-                "total_saving_penalty": str(total_saving_penalty),  
+                "total_savings_paid":   str(total_savings_paid),
+                "total_saving_penalty": str(total_saving_penalty),
                 "total_unpaid_savings": str(total_unpaid_savings),
             },
-            "loan_summary": loan_data
+            "loan_summary": loan_data,
         })
 
 
