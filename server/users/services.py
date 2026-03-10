@@ -61,7 +61,7 @@ def send_otp_email(user, target_email=None):
 
     try:
         resend.Emails.send({
-            "from": "PUNDX <pundx.tech>",
+            "from": "PUNDX <onboarding@resend.dev>",
             "to": [target_email or user.email],
             "subject": subject,
             "html": html_content,
@@ -204,7 +204,7 @@ def send_loan_approved_email(user, loan):
 
     try:
         resend.Emails.send({
-            "from": "PUNDX <pundx.tech>",
+            "from": "PUNDX <onboarding@resend.dev>",
             "to": [user.email],
             "subject": subject,
             "html": html_content,
