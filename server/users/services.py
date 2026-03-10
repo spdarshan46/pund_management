@@ -152,3 +152,65 @@ def send_invite_email(user, pund_name):
 
     email.attach_alternative(html_content, "text/html")
     email.send()
+
+def send_loan_approved_email(user, loan):
+    subject = "PUNDX - Loan Approved"
+
+    html_content = f"""
+    <div style="font-family: Arial; background:#f5f8fc; padding:20px">
+    
+        <div style="max-width:600px;margin:auto;background:white;border-radius:8px;overflow:hidden">
+
+            <div style="background:#00529b;padding:20px;text-align:center;color:white">
+                <h2 style="margin:0">PUNDX</h2>
+                <p style="margin:0;font-size:12px">Community Savings Management System</p>
+            </div>
+
+            <div style="padding:30px;text-align:center">
+
+                <h3>Loan Approved 🎉</h3>
+
+                <p>Dear <b>{user.first_name}</b>,</p>
+
+                <p>Your loan request has been successfully approved.</p>
+
+                <div style="background:#eef5ff;padding:20px;border-radius:6px;margin:20px 0">
+
+                    <p><b>Loan Amount:</b> ₹{loan.principal_amount}</p>
+                    <p><b>Interest:</b> {loan.interest_percentage}%</p>
+                    <p><b>Total Payable:</b> ₹{loan.total_payable}</p>
+                    <p><b>Total Cycles:</b> {loan.total_cycles}</p>
+
+                </div>
+
+                <p>Please make sure to pay your installments on time.</p>
+
+                <p style="color:#777;font-size:12px">
+                    If you have any questions, please contact the pund owner.
+                </p>
+
+            </div>
+
+            <div style="background:#eef5ff;padding:15px;text-align:center;font-size:12px;color:#555">
+                This is a system generated email from <b>PUNDX</b>.
+            </div>
+
+        </div>
+
+    </div>
+    """
+
+    resend.api_key = settings.RESEND_API_KEY
+
+    try:
+        resend.Emails.send({
+            "from": "PUNDX <pundx.tech>",
+            "to": [user.email],
+            "subject": subject,
+            "html": html_content,
+        })
+
+        print("Loan approval email sent successfully")
+
+    except Exception as e:
+        print("EMAIL ERROR:", e)

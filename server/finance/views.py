@@ -1,8 +1,9 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import timedelta
 
 from django.db import models, transaction
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -12,6 +13,8 @@ from rest_framework.views import APIView
 from punds.models import Membership, Pund
 from .models import FinanceAuditLog, Loan, LoanInstallment, Payment, PundStructure
 from .serializers import LoanApproveSerializer, LoanRequestSerializer, PundStructureSerializer
+from users.services import send_loan_approved_email
+
 
 
 # ─── helpers ────────────────────────────────────────────────
@@ -280,75 +283,113 @@ class ApproveLoanView(APIView):
 
     @transaction.atomic
     def post(self, request, loan_id):
-        loan = Loan.objects.filter(id=loan_id).first()
-        if not loan:
-            return Response({"error": "Loan not found"}, status=404)
+
+        loan = get_object_or_404(Loan, id=loan_id)
+
         if loan.status != "PENDING":
             return Response({"error": "Loan already processed"}, status=400)
 
         pund = loan.pund
+
         if not pund.is_active:
             return Response({"error": "Pund is closed"}, status=400)
+
         if not _is_owner(request.user, pund):
             return Response({"error": "Only owner can approve"}, status=403)
 
-        # Prevent duplicate active loan for same member
+        # Prevent duplicate active loan
         if Loan.objects.filter(
-            pund=pund, member=loan.member, status__in=["APPROVED", "ACTIVE"]
+            pund=pund,
+            member=loan.member,
+            status__in=["APPROVED", "ACTIVE"]
         ).exclude(id=loan.id).exists():
+
             return Response(
                 {"error": "Member already has an active loan. Clear previous loan first."},
-                status=400,
+                status=400
             )
 
         serializer = LoanApproveSerializer(data=request.data)
+
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
 
         today = timezone.now().date()
+
         structure = PundStructure.objects.filter(
-            pund=pund, effective_from__lte=today
+            pund=pund,
+            effective_from__lte=today
         ).order_by("-effective_from").first()
+
         if not structure:
             return Response({"error": "Structure not found"}, status=400)
 
         cycles = serializer.validated_data.get("cycles") or structure.default_loan_cycles
 
         # Fund availability check
-        collected_agg = Payment.objects.filter(pund=pund, is_paid=True).aggregate(
+        collected_agg = Payment.objects.filter(
+            pund=pund,
+            is_paid=True
+        ).aggregate(
             total_amount=models.Sum("amount"),
-            total_penalty=models.Sum("penalty_amount"),
+            total_penalty=models.Sum("penalty_amount")
         )
-        total_collected = (collected_agg["total_amount"] or Decimal("0")) + \
-                          (collected_agg["total_penalty"] or Decimal("0"))
-        total_active_loans = Loan.objects.filter(
-            pund=pund, status__in=["APPROVED", "ACTIVE"]
-        ).aggregate(v=models.Sum("remaining_amount"))["v"] or Decimal("0")
 
-        if loan.principal_amount > (total_collected - total_active_loans):
+        total_collected = (
+            (collected_agg["total_amount"] or Decimal("0")) +
+            (collected_agg["total_penalty"] or Decimal("0"))
+        )
+
+        total_active_loans = Loan.objects.filter(
+            pund=pund,
+            status__in=["APPROVED", "ACTIVE"]
+        ).aggregate(
+            total=models.Sum("remaining_amount")
+        )["total"] or Decimal("0")
+
+        available_fund = total_collected - total_active_loans
+
+        if loan.principal_amount > available_fund:
             return Response({"error": "Insufficient fund in pund"}, status=400)
 
-        # Calculate EMI
-        interest      = (loan.principal_amount * structure.loan_interest_percentage) / Decimal("100")
+        # Calculate loan values
+        interest = (
+            loan.principal_amount * structure.loan_interest_percentage
+        ) / Decimal("100")
+
         total_payable = loan.principal_amount + interest
-        emi           = total_payable / cycles
+
+        emi = (total_payable / cycles).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
 
         # Update loan
         loan.interest_percentage = structure.loan_interest_percentage
-        loan.total_payable       = total_payable
-        loan.total_cycles        = cycles
-        loan.remaining_amount    = total_payable
-        loan.status              = "APPROVED"
-        loan.is_active           = True
-        loan.approved_by         = request.user
-        loan.approved_at         = timezone.now()
+        loan.total_payable = total_payable
+        loan.total_cycles = cycles
+        loan.remaining_amount = total_payable
+        loan.status = "APPROVED"
+        loan.is_active = True
+        loan.approved_by = request.user
+        loan.approved_at = timezone.now()
         loan.save()
 
-        # Create installments
-        delta      = 1 if pund.pund_type == "DAILY" else 7 if pund.pund_type == "WEEKLY" else 30
+        # Send email after successful DB commit
+        member = loan.member
+        transaction.on_commit(
+            lambda: send_loan_approved_email(member, loan)
+        )
+
+        # Installment interval
+        delta = (
+            1 if pund.pund_type == "DAILY"
+            else 7 if pund.pund_type == "WEEKLY"
+            else 30
+        )
+
         start_date = today + timedelta(days=delta)
 
-        LoanInstallment.objects.bulk_create([
+        installments = [
             LoanInstallment(
                 loan=loan,
                 cycle_number=i,
@@ -357,16 +398,21 @@ class ApproveLoanView(APIView):
                 status="PENDING",
             )
             for i in range(1, cycles + 1)
-        ])
+        ]
 
+        LoanInstallment.objects.bulk_create(installments)
+
+        # Audit log
         FinanceAuditLog.objects.create(
-            pund=pund, user=request.user,
+            pund=pund,
+            user=request.user,
             action="Loan Approved",
             description=f"Loan {loan.id} approved for {loan.member.email}",
         )
+
         return Response({"message": "Loan approved successfully"})
-
-
+   
+    
 class RejectLoanView(APIView):
     permission_classes = [IsAuthenticated]
 
