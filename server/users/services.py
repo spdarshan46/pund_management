@@ -61,7 +61,7 @@ def send_otp_email(user, target_email=None):
 
     try:
         resend.Emails.send({
-            "from": "PUNDX <onboarding@resend.dev>",
+            "from": "PUNDX <pundx.tech>",
             "to": [target_email or user.email],
             "subject": subject,
             "html": html_content,
