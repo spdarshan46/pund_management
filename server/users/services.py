@@ -83,6 +83,8 @@ def verify_otp(user, otp):
 # Send Invite Email
 # -------------------------
 def send_invite_email(user, pund_name):
+    resend.api_key = settings.RESEND_API_KEY
+
     name = getattr(user, "first_name", user.email)
     subject = f"You've been added to {pund_name}"
     activation_link = f"{settings.FRONTEND_URL}/activate-account?email={user.email}"
@@ -90,15 +92,20 @@ def send_invite_email(user, pund_name):
     html_content = f"""
     <div style="font-family: Arial; background:#f5f8fc; padding:20px">
         <div style="max-width:600px;margin:auto;background:white;border-radius:8px;overflow:hidden">
+
             <div style="background:#00529b;padding:20px;text-align:center;color:white">
                 <h2>PUNDX</h2>
                 <p>Community Savings Management System</p>
             </div>
+
             <div style="padding:30px">
                 <h3>Hello {name},</h3>
                 <p>You have been added to the savings group:</p>
+
                 <h2 style="color:#00529b">{pund_name}</h2>
+
                 <p>Please activate your account by clicking the button below:</p>
+
                 <div style="text-align:center;margin:25px 0">
                     <a href="{activation_link}" 
                        style="background:#00529b;color:white;padding:12px 20px;
@@ -106,13 +113,17 @@ def send_invite_email(user, pund_name):
                        Activate Account
                     </a>
                 </div>
+
                 <p>If the button doesn't work, open this link:</p>
                 <p><a href="{activation_link}">{activation_link}</a></p>
+
                 <p>Thank you for using <b>PUNDX</b>.</p>
             </div>
+
             <div style="background:#eef5ff;padding:15px;text-align:center;font-size:12px;color:#555">
                 PUNDX Official Notification
             </div>
+
         </div>
     </div>
     """
@@ -125,10 +136,9 @@ def send_invite_email(user, pund_name):
             "html": html_content,
         })
         print("Invite email sent successfully")
+
     except Exception as e:
         print("EMAIL ERROR:", e)
-
-
 # -------------------------
 # Send Loan Approved Email
 # -------------------------
