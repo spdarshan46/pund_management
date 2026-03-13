@@ -1,13 +1,13 @@
-PUNDX – Community Savings Management System
+# PUNDX – Community Savings Management System
 
 PUNDX is a real-time web platform designed to manage community savings groups (Punds / Chit Funds).  
 It allows group administrators to manage members, track savings contributions, monitor loans, and maintain transparent financial records.
 
 This system is currently deployed and running in production.
 
+---
 
-
-🌐 Live Application
+## 🌐 Live Application
 
 Frontend  
 https://pundx.co.in
@@ -15,9 +15,9 @@ https://pundx.co.in
 Backend API  
 https://pund-management.onrender.com
 
+---
 
-
-🚀 Key Features
+## 🚀 Key Features
 
 User registration with Email OTP verification
 
@@ -39,9 +39,9 @@ Responsive UI
 
 Production cloud deployment
 
+---
 
-
-🧠 Technology Stack
+## 🧠 Technology Stack
 
 Frontend
 - React
@@ -69,9 +69,9 @@ Version Control
 - Git
 - GitHub
 
+---
 
-
-🔐 Security
+## 🔐 Security
 
 Email OTP verification
 
@@ -85,8 +85,9 @@ Environment-based configuration
 
 Secure password validation
 
+---
 
-⚙️ Deployment Architecture
+## ⚙️ Deployment Architecture
 
 Frontend  
 Vercel
@@ -100,9 +101,9 @@ PostgreSQL
 Email Service  
 Resend
 
+---
 
-
-📈 Future Improvements
+## 📈 Future Improvements
 
 Mobile application
 
@@ -116,18 +117,18 @@ Notification system
 
 Admin management tools
 
+---
 
-
- 👨‍💻 Author
+## 👨‍💻 Author
 
 Darshan S P
 
 GitHub  
 https://github.com/spdarshan46
 
+---
 
-
-📄 Note
+## 📄 Note
 
 This project is actively used and maintained.  
 Some internal configurations and security implementations are intentionally not exposed in the public repository.
