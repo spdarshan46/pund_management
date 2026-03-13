@@ -1,29 +1,37 @@
 import random
 from datetime import timedelta
-from django.utils import timezone
+
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
+from django.utils import timezone
+import resend
 
 
 # -------------------------
-# OTP Generation
+# OTP Generator
 # -------------------------
 def generate_otp():
     return str(random.randint(100000, 999999))
 
 
 # -------------------------
-# Send Email Helper
+# Common Email Sender
 # -------------------------
 def send_html_email(subject, html_content, recipient):
-    email = EmailMultiAlternatives(
-        subject=subject,
-        body="This email requires HTML support.",
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[recipient],
-    )
-    email.attach_alternative(html_content, "text/html")
-    email.send()
+
+    resend.api_key = settings.RESEND_API_KEY
+
+    try:
+        resend.Emails.send({
+            "from": "PUNDX <onboarding@resend.dev>",
+            "to": [recipient],
+            "subject": subject,
+            "html": html_content,
+        })
+
+        print("Email sent successfully")
+
+    except Exception as e:
+        print("EMAIL ERROR:", e)
 
 
 # -------------------------
@@ -41,26 +49,10 @@ def send_otp_email(user, target_email=None):
     subject = "PUNDX - Your OTP Verification Code"
 
     html_content = f"""
-    <div style="font-family: Arial; background:#f5f8fc; padding:20px">
-        <div style="max-width:600px;margin:auto;background:white;border-radius:8px">
-            <div style="background:#00529b;padding:20px;text-align:center;color:white">
-                <h2>PUNDX</h2>
-                <p>Community Savings Management System</p>
-            </div>
-
-            <div style="padding:30px;text-align:center">
-                <h3>Email Verification</h3>
-
-                <p>Your OTP code is:</p>
-
-                <div style="font-size:32px;font-weight:bold;letter-spacing:6px;color:#00529b">
-                    {otp}
-                </div>
-
-                <p>This OTP is valid for <b>5 minutes</b></p>
-            </div>
-        </div>
-    </div>
+    <h2>PUNDX Email Verification</h2>
+    <p>Your OTP is:</p>
+    <h1>{otp}</h1>
+    <p>This OTP is valid for 5 minutes.</p>
     """
 
     send_html_email(subject, html_content, target_email or user.email)
@@ -76,7 +68,7 @@ def verify_otp(user, otp):
         user.save()
         return False, "Invalid OTP"
 
-    if timezone.now() > user.otp_created_at + timedelta(minutes=5):
+    if timezone.now() > user.otp_created_at + timedelta(minutes=2):
         return False, "OTP Expired"
 
     user.email_verified = True
@@ -90,16 +82,14 @@ def verify_otp(user, otp):
 # -------------------------
 def send_invite_email(user, pund_name):
 
-    name = getattr(user, "first_name", user.email)
-
     subject = f"You've been added to {pund_name}"
 
     activation_link = f"{settings.FRONTEND_URL}/activate-account?email={user.email}"
 
     html_content = f"""
-    <h2>Hello {name}</h2>
+    <h2>Hello {user.email}</h2>
 
-    <p>You have been added to:</p>
+    <p>You have been added to the savings group:</p>
 
     <h3>{pund_name}</h3>
 
@@ -114,14 +104,12 @@ def send_invite_email(user, pund_name):
 # -------------------------
 def send_loan_approved_email(user, loan):
 
-    name = getattr(user, "first_name", user.email)
-
     subject = "PUNDX - Loan Approved"
 
     html_content = f"""
     <h2>Loan Approved</h2>
 
-    <p>Dear {name}</p>
+    <p>Dear {user.email}</p>
 
     <p>Your loan has been approved.</p>
 
