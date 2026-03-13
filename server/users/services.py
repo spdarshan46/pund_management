@@ -9,9 +9,7 @@ import resend
 def generate_otp():
     return str(secrets.randbelow(900000) + 100000)
 
-# -------------------------
-# Common Email Sender
-# -------------------------
+
 def send_html_email(subject, html_content, recipient):
 
     resend.api_key = settings.RESEND_API_KEY
@@ -28,6 +26,7 @@ def send_html_email(subject, html_content, recipient):
 
     except Exception as e:
         print("EMAIL ERROR:", e)
+
 
 def verify_otp(user, otp):
 
@@ -134,6 +133,7 @@ def send_invite_email(user, pund_name):
 
     send_html_email(subject, html_content, user.email)
 
+
 def send_loan_approved_email(user, loan):
 
     subject = "PUNDX - Loan Approved"
@@ -166,6 +166,7 @@ def send_loan_approved_email(user, loan):
     html_content = email_template("Loan Approved", content)
 
     send_html_email(subject, html_content, user.email) 
+
 
 def send_otp_email(user, target_email=None):
 
