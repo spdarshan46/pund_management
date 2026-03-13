@@ -19,6 +19,7 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
     "pund-management.onrender.com",
+       "0.0.0.0",
 ]
 
 AUTH_USER_MODEL = "users.User"
