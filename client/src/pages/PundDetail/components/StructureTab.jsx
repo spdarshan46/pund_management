@@ -269,7 +269,7 @@ const StructureTab = ({ pundData, onSubmit }) => {
     default_loan_cycles: pundData?.structure?.default_loan_cycles || '10',
     effective_from: '',
   });
-  const [effectiveOpt, setEffectiveOpt] = useState('auto');
+  const [effectiveOpt, setEffectiveOpt] = useState('manual');
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -393,7 +393,6 @@ const StructureTab = ({ pundData, onSubmit }) => {
                     >
                       <input type="date" name="effective_from"
                         value={data.effective_from} onChange={handleChange}
-                        min={todayStr()}
                         className={`st-date-input${errors.effective_from ? ' err' : ''}`}
                       />
                       {errors.effective_from

@@ -41,28 +41,31 @@ class SendOTPView(APIView):
         if not email:
             return Response({"error": "Email required"}, status=400)
 
-        # 🔴 Check email already registered
-        if User.objects.filter(email=email, email_verified=True).exists():
+        # Check if user exists
+        user = User.objects.filter(email=email).first()
+
+        # If verified user exists → block
+        if user and user.email_verified:
             return Response(
                 {"error": "Email already registered"},
                 status=400
             )
 
-        # 🔴 Check mobile already registered
+        # Check mobile
         if mobile and User.objects.filter(mobile=mobile).exists():
             return Response(
                 {"error": "Mobile number already registered"},
                 status=400
             )
 
-        # create or update user
-        user, created = User.objects.get_or_create(email=email)
+        # Create user if not exists
+        if not user:
+            user = User.objects.create(email=email)
 
         send_otp_email(user)
 
         return Response({"message": "OTP sent successfully"})
-    
-    
+
 class VerifyOTPView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [OTPThrottle]

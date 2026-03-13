@@ -216,7 +216,7 @@ const Styles = () => {
 };
 
 /* ─── helpers ─────────────────────────────────────────────── */
-const fmt    = (v) => `₹${(parseFloat(v) || 0).toLocaleString('en-IN')}`;
+const fmt = (v) => `Rs ${Number(v || 0).toLocaleString('en-IN')}`;
 const num    = (v) => (v === null || v === undefined) ? 0 : parseFloat(v) || 0;
 const fmtDate = (s) => {
   if (!s) return 'N/A';

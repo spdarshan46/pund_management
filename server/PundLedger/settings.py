@@ -4,27 +4,35 @@ from datetime import timedelta
 from pathlib import Path
 from decouple import config
 
-# ── Paths ────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  BASE DIRECTORIES
+# ─────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ── Security ─────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  SECURITY SETTINGS
+# ─────────────────────────────────────────────────────────────
 SECRET_KEY = config("SECRET_KEY")
-DEBUG       = config("DEBUG", cast=bool)
+DEBUG = config("DEBUG", cast=bool)
 
-SECURE_BROWSER_XSS_FILTER   = True
+SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS             = "DENY"
+X_FRAME_OPTIONS = "DENY"
 
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
     "pund-management.onrender.com",
-       "0.0.0.0",
+    "0.0.0.0",
+    "pundx.co.in",
+    "www.pundx.co.in",
 ]
 
 AUTH_USER_MODEL = "users.User"
 
-# ── Installed Apps ────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  APPLICATION DEFINITION
+# ─────────────────────────────────────────────────────────────
 INSTALLED_APPS = [
     # Django core
     "django.contrib.admin",
@@ -37,15 +45,14 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "rest_framework_simplejwt",
-    # Local
+    # Local apps
     "users",
     "punds",
     "finance",
 ]
 
-# ── Middleware ────────────────────────────────────────────────
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",           # must be first
+    "corsheaders.middleware.CorsMiddleware",          # Must be first
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -55,11 +62,12 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-# ── URLs & WSGI ───────────────────────────────────────────────
-ROOT_URLCONF     = "PundLedger.urls"
+ROOT_URLCONF = "PundLedger.urls"
 WSGI_APPLICATION = "PundLedger.wsgi.application"
 
-# ── Templates ─────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  TEMPLATES
+# ─────────────────────────────────────────────────────────────
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -75,50 +83,70 @@ TEMPLATES = [
     },
 ]
 
-# ── Database ──────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  DATABASE
+# ─────────────────────────────────────────────────────────────
 DATABASES = {
     "default": {
-        "ENGINE":   "django.db.backends.postgresql",
-        "NAME":     config("DB_NAME"),
-        "USER":     config("DB_USER"),
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": config("DB_NAME"),
+        "USER": config("DB_USER"),
         "PASSWORD": config("DB_PASSWORD"),
-        "HOST":     config("DB_HOST"),
-        "PORT":     config("DB_PORT"),
+        "HOST": config("DB_HOST"),
+        "PORT": config("DB_PORT"),
         "CONN_MAX_AGE": 600,
     }
 }
 
-# ── Password Validation ───────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  PASSWORD VALIDATION
+# ─────────────────────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-     "OPTIONS": {"min_length": 8}},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 8},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-# ── Internationalisation ──────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  INTERNATIONALIZATION
+# ─────────────────────────────────────────────────────────────
 LANGUAGE_CODE = "en-us"
-TIME_ZONE     = "UTC"
-USE_I18N      = True
-USE_TZ        = True
+TIME_ZONE = "UTC"
+USE_I18N = True
+USE_TZ = True
 
-# ── Static Files ──────────────────────────────────────────────
-STATIC_URL         = "static/"
+# ─────────────────────────────────────────────────────────────
+#  STATIC FILES
+# ─────────────────────────────────────────────────────────────
+STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# ── CORS ──────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  CORS & SECURITY HEADERS
+# ─────────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "https://pundx.co.in",
+    "https://www.pundx.co.in",
     "https://pundx.vercel.app",
 ]
 CORS_ALLOW_HEADERS = ["*"]
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 CSRF_TRUSTED_ORIGINS = [
+    "https://pundx.co.in",
+    "https://www.pundx.co.in",
     "https://pundx.vercel.app",
 ]
-# ── REST Framework ────────────────────────────────────────────
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# ─────────────────────────────────────────────────────────────
+#  DJANGO REST FRAMEWORK
+# ─────────────────────────────────────────────────────────────
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -131,31 +159,36 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon":           "50/minute",
-        "user":           "500/minute",
-        "login":          "5/minute",
-        "otp":            "5/minute",
+        "anon": "50/minute",
+        "user": "500/minute",
+        "login": "10/minute",
+        "otp": "5/minute",
         "password_reset": "5/minute",
     },
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
 }
 
-# ── Simple JWT ────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  SIMPLE JWT
+# ─────────────────────────────────────────────────────────────
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME":    timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME":   timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS":    True,
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
-    "AUTH_HEADER_TYPES":        ("Bearer",),
+    "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-# ── Email ─────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  EMAIL (RESEND)
+# ─────────────────────────────────────────────────────────────
 RESEND_API_KEY = config("RESEND_API_KEY")
+FRONTEND_URL = "https://pundx.co.in"
 
-FRONTEND_URL = "https://pundx.vercel.app"
-
-# ── Logging ───────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
+#  LOGGING
+# ─────────────────────────────────────────────────────────────
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

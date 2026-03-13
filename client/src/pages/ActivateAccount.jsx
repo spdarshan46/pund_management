@@ -1,11 +1,11 @@
-// src/pages/ActivateAccount.jsx
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FiMail, FiShield, FiUser, FiPhone, FiLock,
   FiArrowRight, FiCheckCircle, FiRefreshCw, FiEye, FiEyeOff,
 } from "react-icons/fi";
+import { authAPI } from '../services/api';
+
 
 /* ─── STYLES ─────────────────────────────────────────────── */
 const CSS = `
@@ -285,7 +285,6 @@ const Styles = () => {
 };
 
 /* ─── HELPERS ────────────────────────────────────────────── */
-const baseURL = "https://pund-management.onrender.com/users";
 
 const STEPS = [
   { num: 1, label: "Email" },
@@ -408,24 +407,24 @@ const ActivateAccount = () => {
   };
 
   const sendOTP = () => wrap(async () => {
-    await axios.post(`${baseURL}/send-otp/`, { email });
+    await authAPI.sendOTP(email);
     setStep(2);
     startTimer();
   });
 
   const resendOTP = () => wrap(async () => {
-    await axios.post(`${baseURL}/send-otp/`, { email });
+    await authAPI.sendOTP(email);
     startTimer();
     setOtp("");
   });
 
   const verifyOTP = () => wrap(async () => {
-    await axios.post(`${baseURL}/verify-otp/`, { email, otp });
+    await authAPI.verifyOTP(email, otp);
     setStep(3);
   });
 
   const activateAccount = () => wrap(async () => {
-    await axios.post(`${baseURL}/register/`, { email, name, mobile, password });
+    await authAPI.register({ email, name, mobile, password });
     window.location.href = "/login";
   });
 

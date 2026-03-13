@@ -22,22 +22,26 @@ class PundStructure(models.Model):
 
 
 class Payment(models.Model):
-    pund         = models.ForeignKey(Pund, on_delete=models.CASCADE, related_name="payments")
-    member       = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payments")
-    cycle_number = models.IntegerField()
-    amount       = models.DecimalField(max_digits=10, decimal_places=2)
-    penalty_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    is_paid      = models.BooleanField(default=False)
-    paid_at      = models.DateTimeField(null=True, blank=True)
-    due_date     = models.DateField(null=True, blank=True)
-    created_at   = models.DateTimeField(default=timezone.now)
+    PAYMENT_TYPE_CHOICES = [
+        ("SAVING", "Saving"),
+        ("EMI", "Loan EMI"),
+        ("PENALTY", "Penalty"),
+    ]
+
+    pund            = models.ForeignKey(Pund, on_delete=models.CASCADE, related_name="payments")
+    member          = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payments")
+    cycle_number    = models.IntegerField()
+    payment_type    = models.CharField(max_length=20, choices=PAYMENT_TYPE_CHOICES, default="SAVING")
+    amount          = models.DecimalField(max_digits=10, decimal_places=2)
+    penalty_amount  = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_paid         = models.BooleanField(default=False)
+    paid_at         = models.DateTimeField(null=True, blank=True)
+    due_date        = models.DateField(null=True, blank=True)
+    created_at      = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        unique_together = ("pund", "member", "cycle_number")
-        ordering        = ["-cycle_number"]
-
-    def __str__(self):
-        return f"{self.pund.name} - Cycle {self.cycle_number} - {self.member.email}"
+        unique_together = ("pund", "member", "cycle_number", "payment_type")
+        ordering = ["-cycle_number"]
 
 
 class Loan(models.Model):

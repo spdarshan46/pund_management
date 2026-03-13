@@ -1,9 +1,9 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_URL = 'https://pund-management.onrender.com';
+  const API_URL = 'https://pund-management.onrender.com';
 
-const api = axios.create({
+  const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',

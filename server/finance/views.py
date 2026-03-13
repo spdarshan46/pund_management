@@ -140,6 +140,7 @@ class GenerateCycleView(APIView):
                 pund=pund,
                 member=m.user,
                 cycle_number=next_cycle,
+                payment_type="SAVING",          # ← new field added
                 amount=structure.saving_amount,
                 due_date=due_date,
                 penalty_amount=0,
@@ -153,8 +154,7 @@ class GenerateCycleView(APIView):
             "cycle_number": next_cycle,
             "due_date":     due_date,
         }, status=status.HTTP_201_CREATED)
-
-
+    
 # ─── Payments ───────────────────────────────────────────────
 
 class MarkPaymentPaidView(APIView):
@@ -162,27 +162,35 @@ class MarkPaymentPaidView(APIView):
 
     def post(self, request, payment_id):
         payment = Payment.objects.filter(id=payment_id).first()
+
         if not payment:
             return Response({"error": "Payment not found"}, status=404)
+
+        if payment.payment_type != "SAVING":
+            return Response({"error": "Only saving payments allowed here"}, status=400)
+
         if not payment.pund.is_active:
             return Response({"error": "Pund is closed"}, status=400)
+
         if payment.is_paid:
             return Response({"error": "Payment already marked as paid"}, status=400)
+
         if not _is_owner(request.user, payment.pund):
             return Response({"error": "Only owner can mark payment"}, status=403)
 
-        payment.is_paid  = True
-        payment.paid_at  = timezone.now()
+        payment.is_paid = True
+        payment.paid_at = timezone.now()
         payment.save()
 
         FinanceAuditLog.objects.create(
-            pund=payment.pund, user=request.user,
+            pund=payment.pund,
+            user=request.user,
             action="Saving Paid",
             description=f"Saving payment {payment.id} marked paid",
         )
+
         return Response({"message": "Payment marked as paid"})
-
-
+    
 class CyclePaymentsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -193,56 +201,73 @@ class CyclePaymentsView(APIView):
         if not _get_membership(request.user, pund):
             return Response({"error": "Not authorized"}, status=403)
 
+        # ✅ ONLY SAVING PAYMENTS
         cycle_numbers = (
-            Payment.objects.filter(pund=pund)
+            Payment.objects.filter(pund=pund, payment_type="SAVING")
             .values_list("cycle_number", flat=True)
             .distinct()
             .order_by("cycle_number")
         )
 
         cycles_data = []
-        for cycle_num in cycle_numbers:
-            cycle_payments = Payment.objects.filter(pund=pund, cycle_number=cycle_num)
 
-            total_expected = cycle_payments.aggregate(v=models.Sum("amount"))["v"] or Decimal("0")
+        for cycle_num in cycle_numbers:
+
+            # ✅ ONLY SAVING PAYMENTS
+            cycle_payments = Payment.objects.filter(
+                pund=pund,
+                cycle_number=cycle_num,
+                payment_type="SAVING"
+            )
+
+            total_expected = cycle_payments.aggregate(
+                v=models.Sum("amount")
+            )["v"] or Decimal("0")
 
             paid_agg = cycle_payments.filter(is_paid=True).aggregate(
                 total_amount=models.Sum("amount"),
                 total_penalty=models.Sum("penalty_amount"),
             )
+
             total_collected = (paid_agg["total_amount"] or Decimal("0")) + \
                               (paid_agg["total_penalty"] or Decimal("0"))
-            total_penalties = cycle_payments.aggregate(v=models.Sum("penalty_amount"))["v"] or Decimal("0")
 
-            paid_count  = cycle_payments.filter(is_paid=True).count()
+            total_penalties = cycle_payments.aggregate(
+                v=models.Sum("penalty_amount")
+            )["v"] or Decimal("0")
+
+            paid_count = cycle_payments.filter(is_paid=True).count()
             total_count = cycle_payments.count()
-            first       = cycle_payments.order_by("due_date").first()
+
+            first = cycle_payments.order_by("due_date").first()
 
             cycles_data.append({
-                "cycle_number":    cycle_num,
-                "total_expected":  str(total_expected),
+                "cycle_number": cycle_num,
+                "total_expected": str(total_expected),
                 "total_collected": str(total_collected),
                 "total_penalties": str(total_penalties),
-                "paid_count":      paid_count,
-                "total_count":     total_count,
-                "progress":        round(paid_count / total_count * 100, 2) if total_count else 0,
-                "due_date":        first.due_date if first else None,
-                "payments": [{
-                    "id":            p.id,
-                    "member_id":     p.member.id,
-                    "member_name":   p.member.name,
-                    "member_email":  p.member.email,
-                    "amount":        str(p.amount),
-                    "penalty_amount": str(p.penalty_amount),
-                    "is_paid":       p.is_paid,
-                    "due_date":      p.due_date,
-                    "paid_at":       p.paid_at,
-                } for p in cycle_payments],
+                "paid_count": paid_count,
+                "total_count": total_count,
+                "progress": round(paid_count / total_count * 100, 2) if total_count else 0,
+                "due_date": first.due_date if first else None,
+                "payments": [
+                    {
+                        "id": p.id,
+                        "member_id": p.member.id,
+                        "member_name": p.member.name,
+                        "member_email": p.member.email,
+                        "amount": str(p.amount),
+                        "penalty_amount": str(p.penalty_amount),
+                        "is_paid": p.is_paid,
+                        "due_date": p.due_date,
+                        "paid_at": p.paid_at,
+                    }
+                    for p in cycle_payments
+                ],
             })
 
         return Response(cycles_data)
-
-
+    
 # ─── Loans ──────────────────────────────────────────────────
 
 class RequestLoanView(APIView):
@@ -479,6 +504,7 @@ class MarkLoanInstallmentPaidView(APIView):
             pund=loan.pund,
             member=loan.member,
             cycle_number=installment.cycle_number,
+            payment_type="EMI",                # ← new field added to lookup
             defaults={
                 "amount": installment.emi_amount,
                 "penalty_amount": installment.penalty_amount,
@@ -509,8 +535,7 @@ class MarkLoanInstallmentPaidView(APIView):
             "remaining_amount": str(loan.remaining_amount),
             "loan_status":      loan.status,
         })
-
-
+    
 class LoanDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -627,10 +652,11 @@ class FundSummaryView(APIView):
         if not is_member:
             return Response({"error": "Not authorized"}, status=403)
 
-        # -------- TOTAL COLLECTED --------
+        # -------- TOTAL COLLECTED (SAVINGS + PENALTIES) --------
         total_collected_data = Payment.objects.filter(
             pund=pund,
-            is_paid=True
+            is_paid=True,
+            payment_type="SAVING"
         ).aggregate(
             total_amount=models.Sum("amount"),
             total_penalty=models.Sum("penalty_amount")
@@ -659,7 +685,9 @@ class FundSummaryView(APIView):
         )["total"] or Decimal("0")
 
         total_interest = total_payable - total_principal
-        available = total_collected - total_principal
+
+        # ✅ CORRECT AVAILABLE FUND CALCULATION
+        available = total_collected - total_outstanding
 
         return Response({
             "total_collected": str(total_collected),
@@ -672,8 +700,7 @@ class FundSummaryView(APIView):
 
             "available_fund": str(available),
         })
-
-
+     
 class SavingSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -684,7 +711,7 @@ class SavingSummaryView(APIView):
         if not _get_membership(request.user, pund):
             return Response({"error": "You are not a member of this pund"}, status=403)
 
-        payments       = Payment.objects.filter(pund=pund)
+        payments = Payment.objects.filter(pund=pund, payment_type="SAVING")   # ← only savings
         total_cycles   = payments.values("cycle_number").distinct().count()
         total_expected = payments.aggregate(v=models.Sum("amount"))["v"] or Decimal("0")
 
@@ -704,13 +731,16 @@ class SavingSummaryView(APIView):
             "total_unpaid_savings":     str(total_unpaid),
             "total_penalties_collected": str(total_penalty),
         })
-
-
+    
 class MyFinancialSummaryView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pund_id):
-        payments = Payment.objects.filter(member=request.user, pund_id=pund_id)
+        payments = Payment.objects.filter(
+            member=request.user,
+            pund_id=pund_id,
+            payment_type="SAVING"          
+        )
 
         total_savings_paid   = payments.filter(is_paid=True).aggregate(v=models.Sum("amount"))["v"] or Decimal("0")
         total_saving_penalty = payments.aggregate(v=models.Sum("penalty_amount"))["v"]              or Decimal("0")
@@ -741,8 +771,7 @@ class MyFinancialSummaryView(APIView):
             },
             "loan_summary": loan_data,
         })
-
-
+    
 class AuditLogView(APIView):
     permission_classes = [IsAuthenticated]
 
