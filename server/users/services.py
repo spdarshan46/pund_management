@@ -62,7 +62,7 @@ def email_template(title, content):
 
                         <!-- HEADER -->
                         <tr>
-                            <td style="background:linear-gradient(135deg, #1d4ed8, #4f46e5); padding:20px; text-align:center; color:white;">                                <h1 style="margin:0; font-size:28px;">PUNDX</h1>
+                            <td style="background:linear-gradient(135deg, #100, #4f46e5); padding:20px; text-align:center; color:white;">                                <h1 style="margin:0; font-size:28px;">PUNDX</h1>
                                 <p style="margin:5px 0 0 0; font-size:14px;">Community Savings Management System</p>
                             </td>
                         </tr>
@@ -99,6 +99,7 @@ def email_template(title, content):
     </body>
     </html>
     """
+
 
 def send_invite_email(user, pund_name):
 
