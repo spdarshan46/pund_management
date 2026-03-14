@@ -56,6 +56,8 @@ class Loan(models.Model):
     member              = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="loans")
     principal_amount    = models.DecimalField(max_digits=12, decimal_places=2)
     interest_percentage = models.DecimalField(max_digits=5,  decimal_places=2)
+    amount_given = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    interest_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_payable       = models.DecimalField(max_digits=12, decimal_places=2)
     total_cycles        = models.IntegerField()
     remaining_amount    = models.DecimalField(max_digits=12, decimal_places=2)

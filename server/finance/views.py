@@ -377,13 +377,16 @@ class ApproveLoanView(APIView):
         if loan.principal_amount > available_fund:
             return Response({"error": "Insufficient fund in pund"}, status=400)
 
-        # Calculate loan values
+        # Calculate advance deducted interest
         interest = (
             loan.principal_amount * structure.loan_interest_percentage
         ) / Decimal("100")
 
-        total_payable = loan.principal_amount + interest
+        # Money actually given to borrower
+        amount_given = loan.principal_amount - interest
 
+        # Total payable stays same as ledger amount
+        total_payable = loan.principal_amount
         emi = (total_payable / cycles).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
@@ -391,6 +394,8 @@ class ApproveLoanView(APIView):
         # Update loan
         loan.interest_percentage = structure.loan_interest_percentage
         loan.total_payable = total_payable
+        loan.amount_given = amount_given   # NEW FIELD
+        loan.interest_amount = interest 
         loan.total_cycles = cycles
         loan.remaining_amount = total_payable
         loan.status = "APPROVED"
